@@ -8,7 +8,7 @@ import { renderBearingSVG } from './renderers/bearingRenderer.js';
 // Roll media (thermal label printers) is one label per page: the page itself is
 // cut to the label, so there is no sheet margin and capacity is always 1.
 // widthMm is the length along the roll; heightMm is the tape width.
-function createRollTemplate({ id, label, widthMm, heightMm, showVisuals, maxMetaLines, showSubtitle, titleLines }) {
+function createRollTemplate({ id, label, widthMm, heightMm, showVisuals, maxMetaLines, showSubtitle, shortSubtitle, titleLines }) {
   return {
     id,
     label,
@@ -28,6 +28,7 @@ function createRollTemplate({ id, label, widthMm, heightMm, showVisuals, maxMeta
     padLeft: 0,
     showVisuals,
     showSubtitle,
+    shortSubtitle,
     maxMetaLines,
     titleLines
   };
@@ -103,8 +104,11 @@ const LABEL_TEMPLATES = {
     widthMm: 40,
     heightMm: 12,
     showVisuals: true,
-    showSubtitle: false,
-    maxMetaLines: 3,
+    // The subtitle costs one detail line: 12.5px title + 8.1px subtitle + 2 x 8px
+    // detail fills the 38px budget, where a third detail line would overflow.
+    showSubtitle: true,
+    shortSubtitle: true,
+    maxMetaLines: 2,
     titleLines: 1
   }),
   niimbot12x75: createRollTemplate({
@@ -723,23 +727,32 @@ function renderTitle(part) {
     return preset ? `${preset} Bearing` : 'Bearing';
   }
 
+  // The size designation already implies the standard (M6x1.0 vs 1/4-20), so the
+  // word is dropped. Screws and set screws have never carried it either.
   if (part.type === 'nut') {
-    const standardLabel = part.standard === 'sae' ? 'SAE' : 'Metric';
     const nutStyleLabel = NUT_STYLE_LABELS[normalizeNutStyle(part.nutStyle, Boolean(part.isLockNut))] || NUT_STYLE_LABELS.hex;
-    return `${standardLabel} ${part.size} ${nutStyleLabel}`;
+    return `${part.size} ${nutStyleLabel}`;
   }
 
-  const standardLabel = part.standard === 'sae' ? 'SAE' : 'Metric';
-  return `${standardLabel} ${part.size} ${part.type.charAt(0).toUpperCase()}${part.type.slice(1)}`;
+  return `${part.size} ${part.type.charAt(0).toUpperCase()}${part.type.slice(1)}`;
 }
 
-function renderSubtitle(part) {
+// `short` trims the subtitle for narrow stock. It drops the end type, which the
+// side-view drawing already shows, and keeps the drive, which it does not —
+// renderDriveSymbol() only runs for the top view.
+function renderSubtitle(part, { short = false } = {}) {
   if (part.type === 'screw') {
     const head = part.isHeadless ? 'Headless' : (HEAD_LABELS[part.head] || 'Head');
     const drive = DRIVE_LABELS[part.drive] || 'Drive';
     const endType = END_TYPE_LABELS[part.endType] || 'Pointed End';
-    return part.isHeadless
-      ? `${head} • ${endType}`
+
+    if (part.isHeadless) {
+      // Nothing else describes a headless screw, so both segments are kept.
+      return `${head} • ${endType}`;
+    }
+
+    return short
+      ? `${head} • ${drive}`
       : `${head} • ${drive} • ${endType}`;
   }
 
@@ -834,6 +847,7 @@ function renderLabelMarkup(part, layout = {}) {
     density = 'normal',
     showVisuals = true,
     showSubtitle = true,
+    shortSubtitle = false,
     maxMetaLines = Infinity
   } = layout;
 
@@ -870,7 +884,7 @@ function renderLabelMarkup(part, layout = {}) {
     : '';
 
   const subtitleMarkup = showSubtitle
-    ? `<div class="label-subtitle">${escapeHtml(renderSubtitle(part))}</div>`
+    ? `<div class="label-subtitle">${escapeHtml(renderSubtitle(part, { short: shortSubtitle }))}</div>`
     : '';
   const locationMarkup = !compact && !micro && part.location
     ? `<div class="label-location">${escapeHtml(part.location)}</div>`
@@ -937,6 +951,7 @@ function updatePreview() {
     density: template.density || (template.labelHeight <= 1.2 ? 'compact' : 'normal'),
     showVisuals: template.showVisuals ?? true,
     showSubtitle: template.showSubtitle ?? true,
+    shortSubtitle: template.shortSubtitle ?? false,
     maxMetaLines: template.maxMetaLines ?? Infinity,
     titleLines: template.titleLines ?? 1
   };
