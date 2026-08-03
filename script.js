@@ -5,7 +5,35 @@ import { renderNutSVG } from './renderers/nutRenderer.js';
 import { renderWasherSVG } from './renderers/washerRenderer.js';
 import { renderBearingSVG } from './renderers/bearingRenderer.js';
 
-const AVERY_TEMPLATES = {
+// Roll media (thermal label printers) is one label per page: the page itself is
+// cut to the label, so there is no sheet margin and capacity is always 1.
+// widthMm is the length along the roll; heightMm is the tape width.
+function createRollTemplate({ id, label, widthMm, heightMm, showVisuals, maxMetaLines, showSubtitle, titleLines }) {
+  return {
+    id,
+    label,
+    media: 'roll',
+    density: 'micro',
+    columns: 1,
+    rows: 1,
+    widthMm,
+    heightMm,
+    labelWidth: mmToInches(widthMm),
+    labelHeight: mmToInches(heightMm),
+    colGap: 0,
+    rowGap: 0,
+    padTop: 0,
+    padRight: 0,
+    padBottom: 0,
+    padLeft: 0,
+    showVisuals,
+    showSubtitle,
+    maxMetaLines,
+    titleLines
+  };
+}
+
+const LABEL_TEMPLATES = {
   single: {
     id: 'single',
     label: 'Single Label',
@@ -49,7 +77,46 @@ const AVERY_TEMPLATES = {
     labelHeight: 2,
     colGap: 0.125,
     rowGap: 0
-  }
+  },
+
+  // NIIMBOT D11 / D110 / D101 / H1S thermal roll stock.
+  // 12mm tape width; the trailing number in the part code is labels per roll,
+  // which does not affect layout.
+  // 12mm of tape leaves roughly 10mm of printable height. At 7.5pt titles and
+  // 5pt details that is a title plus about three more lines, so each budget
+  // below is set to fill that height without clipping in the common case.
+  niimbot12x22: createRollTemplate({
+    id: 'niimbot12x22',
+    label: 'NIIMBOT T12*22-260',
+    widthMm: 22,
+    heightMm: 12,
+    // ~19mm of usable width has no room for a drawing beside the text, and the
+    // title needs two lines at this width, which leaves room for one detail.
+    showVisuals: false,
+    showSubtitle: false,
+    maxMetaLines: 1,
+    titleLines: 2
+  }),
+  niimbot12x40: createRollTemplate({
+    id: 'niimbot12x40',
+    label: 'NIIMBOT T12*40-160',
+    widthMm: 40,
+    heightMm: 12,
+    showVisuals: true,
+    showSubtitle: false,
+    maxMetaLines: 3,
+    titleLines: 1
+  }),
+  niimbot12x75: createRollTemplate({
+    id: 'niimbot12x75',
+    label: 'NIIMBOT T12*75-95',
+    widthMm: 75,
+    heightMm: 12,
+    showVisuals: true,
+    showSubtitle: true,
+    maxMetaLines: 2,
+    titleLines: 1
+  })
 };
 
 const form = document.getElementById('labelForm');
@@ -472,7 +539,7 @@ function refreshLabelPicker() {
 
 function getSheetSettings() {
   const templateId = templateSelect.value || 'single';
-  const template = AVERY_TEMPLATES[templateId] || AVERY_TEMPLATES.single;
+  const template = LABEL_TEMPLATES[templateId] || LABEL_TEMPLATES.single;
   const capacity = template.columns * template.rows;
   const totalLabelCount = labelConfigs.reduce((sum, label) => sum + Math.max(1, Number(label.quantity) || 1), 0);
   const pageCount = Math.max(1, Math.ceil(totalLabelCount / capacity));
@@ -759,47 +826,120 @@ function buildMetaLines(part) {
   return metaLines;
 }
 
-function renderLabelMarkup(part, compact = false) {
+// `maxMetaLines` caps how many detail lines survive. Location ranks below every
+// other detail, so it is appended before the cap is applied and is therefore the
+// first thing dropped when the budget runs out.
+function renderLabelMarkup(part, layout = {}) {
+  const {
+    density = 'normal',
+    showVisuals = true,
+    showSubtitle = true,
+    maxMetaLines = Infinity
+  } = layout;
+
+  const compact = density === 'compact';
+  const micro = density === 'micro';
+
   const title = escapeHtml(renderTitle(part));
-  const subtitle = escapeHtml(renderSubtitle(part));
-  const metaLines = buildMetaLines(part);
-  if (compact && part.location) {
-    metaLines.push(`Loc: ${part.location}`);
+  const detailLines = buildMetaLines(part);
+
+  // Narrow stock has no room for a separate location block, so fold it inline
+  // as the lowest-priority line.
+  if ((compact || micro) && part.location) {
+    detailLines.push(`Loc: ${part.location}`);
   }
-  const meta = metaLines.map((line) => escapeHtml(line)).join('<br>');
-  const views = renderFastenerViews(part);
+
+  const metaLines = Number.isFinite(maxMetaLines)
+    ? detailLines.slice(0, Math.max(0, maxMetaLines))
+    : detailLines;
+
+  // One element per line so micro stock can clamp each to a single line.
+  const meta = metaLines
+    .map((line) => `<div class="label-meta-line">${escapeHtml(line)}</div>`)
+    .join('');
+
+  // A single drawing is all that fits on micro stock; wider media gets both views.
+  const views = showVisuals
+    ? (micro ? [renderFastenerSVG(part)] : renderFastenerViews(part))
+    : [];
   const viewsMarkup = views
     .map((viewSvg) => `<div class="label-view"><div class="label-view-svg">${viewSvg}</div></div>`)
     .join('');
-  const locationMarkup = !compact && part.location
+  const visualsMarkup = views.length
+    ? `<div class="label-visuals${views.length === 1 ? ' label-visuals--single' : ''}" aria-hidden="true">${viewsMarkup}</div>`
+    : '';
+
+  const subtitleMarkup = showSubtitle
+    ? `<div class="label-subtitle">${escapeHtml(renderSubtitle(part))}</div>`
+    : '';
+  const locationMarkup = !compact && !micro && part.location
     ? `<div class="label-location">${escapeHtml(part.location)}</div>`
     : '';
 
+  const classNames = ['label'];
+  if (compact) {
+    classNames.push('label--compact');
+  }
+  if (micro) {
+    classNames.push('label--micro');
+  }
+  if (views.length) {
+    classNames.push('label--with-visuals');
+  }
+
+  const styleAttr = micro ? ` style="--title-lines:${layout.titleLines || 1}"` : '';
+
   return `
-    <section class="label${compact ? ' label--compact' : ''}">
+    <section class="${classNames.join(' ')}"${styleAttr}>
       <div class="label-main">
         <div>
           <div class="label-title">${title}</div>
-          <div class="label-subtitle">${subtitle}</div>
+          ${subtitleMarkup}
           <div class="label-meta">${meta}</div>
         </div>
         ${locationMarkup}
       </div>
-      <div class="label-visuals${views.length === 1 ? ' label-visuals--single' : ''}" aria-hidden="true">
-        ${viewsMarkup}
-      </div>
+      ${visualsMarkup}
     </section>
   `;
 }
 
-function updateSheetNotice(totalCount, capacity, pageCount, templateLabel) {
-  sheetNotice.textContent = `${templateLabel} preview • ${totalCount} label${totalCount === 1 ? '' : 's'} across ${pageCount} page${pageCount === 1 ? '' : 's'} (${capacity} per page)`;
+function updateSheetNotice(totalCount, capacity, pageCount, template) {
+  const labelWord = `${totalCount} label${totalCount === 1 ? '' : 's'}`;
+
+  if (template.media === 'roll') {
+    sheetNotice.textContent = `${template.label} preview • ${labelWord} • ${template.widthMm} × ${template.heightMm}mm, one per page (shown enlarged)`;
+    return;
+  }
+
+  sheetNotice.textContent = `${template.label} preview • ${labelWord} across ${pageCount} page${pageCount === 1 ? '' : 's'} (${capacity} per page)`;
+}
+
+// @page cannot be scoped to an element, so the paper size for roll media has to
+// be swapped at the document level whenever the template changes.
+function updatePageSizeRule(template) {
+  let styleEl = document.getElementById('pageSizeRule');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'pageSizeRule';
+    document.head.appendChild(styleEl);
+  }
+
+  styleEl.textContent = template.media === 'roll'
+    ? `@page { size: ${template.widthMm}mm ${template.heightMm}mm; margin: 0; }`
+    : '@page { size: auto; margin: 0; }';
 }
 
 function updatePreview() {
   storeActiveLabel();
   const { template, totalLabelCount, capacity, pageCount } = getSheetSettings();
-  const compact = template.labelHeight <= 1.2;
+  const layout = {
+    density: template.density || (template.labelHeight <= 1.2 ? 'compact' : 'normal'),
+    showVisuals: template.showVisuals ?? true,
+    showSubtitle: template.showSubtitle ?? true,
+    maxMetaLines: template.maxMetaLines ?? Infinity,
+    titleLines: template.titleLines ?? 1
+  };
   const padTop = template.padTop ?? 0.15;
   const padRight = template.padRight ?? 0.15;
   const padBottom = template.padBottom ?? 0.15;
@@ -819,7 +959,7 @@ function updatePreview() {
     const start = pageIndex * capacity;
     const end = start + capacity;
     const labelsForPage = expandedLabels.slice(start, end);
-    const labelsMarkup = labelsForPage.map((label) => renderLabelMarkup(label, compact)).join('');
+    const labelsMarkup = labelsForPage.map((label) => renderLabelMarkup(label, layout)).join('');
 
     return `
       <div class="sheet-page">
@@ -828,6 +968,7 @@ function updatePreview() {
           class="label-sheet-grid"
           style="--cols:${template.columns}; --label-width:${template.labelWidth}in; --label-height:${template.labelHeight}in; --col-gap:${template.colGap}in; --row-gap:${template.rowGap}in; --pad-top:${padTop}in; --pad-right:${padRight}in; --pad-bottom:${padBottom}in; --pad-left:${padLeft}in;"
           data-template="${template.id}"
+          data-media="${template.media || 'sheet'}"
         >
           ${labelsMarkup}
         </div>
@@ -837,8 +978,9 @@ function updatePreview() {
 
   sheetPreview.innerHTML = pageMarkup;
 
+  updatePageSizeRule(template);
   refreshLabelPicker();
-  updateSheetNotice(totalLabelCount, capacity, pageCount, template.label);
+  updateSheetNotice(totalLabelCount, capacity, pageCount, template);
 }
 
 function downloadTextFile(filename, content, mimeType) {
@@ -891,7 +1033,7 @@ function importConfigFromPayload(payload) {
   }
 
   const templateId = payload?.sheet?.template;
-  if (templateId && AVERY_TEMPLATES[templateId]) {
+  if (templateId && LABEL_TEMPLATES[templateId]) {
     templateSelect.value = templateId;
   }
 

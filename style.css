@@ -269,6 +269,78 @@ button {
   height: 31px;
 }
 
+/* Thermal roll stock (e.g. NIIMBOT 12mm tape). Sized in mm/pt rather than rem so
+   the printed result is predictable at 203dpi instead of tracking screen pixels. */
+.label--micro {
+  grid-template-columns: 1fr;
+  padding: 0.7mm 1.1mm;
+  gap: 0;
+  /* Last line of defence: at this size a long title or vendor string would
+     otherwise spill onto the neighbouring label. */
+  overflow: hidden;
+}
+
+.label--micro.label--with-visuals {
+  grid-template-columns: 1fr 9mm;
+  gap: 1mm;
+}
+
+.label--micro .label-main {
+  justify-content: center;
+  overflow: hidden;
+}
+
+.label--micro .label-title {
+  font-size: 7.5pt;
+  line-height: 1.1;
+  margin-bottom: 0.4mm;
+  display: -webkit-box;
+  -webkit-line-clamp: var(--title-lines, 1);
+  line-clamp: var(--title-lines, 1);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.label--micro .label-subtitle {
+  font-size: 5pt;
+  line-height: 1.1;
+  margin-bottom: 0.2mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label--micro .label-meta {
+  font-size: 5pt;
+  line-height: 1.2;
+}
+
+/* Each detail is kept to exactly one line: wrapping a dimension string across
+   two lines costs more height than the information is worth at this size. */
+.label--micro .label-meta-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label--micro .label-visuals {
+  border-left: 0;
+  padding-left: 0;
+  gap: 0;
+  justify-content: center;
+}
+
+.label--micro .label-view {
+  border: 0;
+  padding: 0;
+}
+
+.label--micro .label-view-svg svg {
+  width: 9mm;
+  height: 10mm;
+}
+
 .sheet-preview {
   width: 100%;
   overflow: auto;
@@ -309,6 +381,18 @@ button {
   padding-left: var(--pad-left, 0.15in);
   background: #fff;
   border: 1px dashed #aaa;
+}
+
+/* A 12mm-tall label is unreadable at 1:1 on screen. Magnify the preview only —
+   print must stay at true size. Falls back to 1x where zoom is unsupported. */
+@media screen {
+  .label-sheet-grid[data-media='roll'] {
+    zoom: 3;
+  }
+
+  .label-sheet-grid[data-media='roll'] .label {
+    border-color: #bbb;
+  }
 }
 
 @media (max-width: 900px) {

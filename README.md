@@ -38,12 +38,16 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
   - Add, duplicate, remove labels
   - Switch active label
   - Per-label quantity
-- Sheet previews:
+- Sheet templates (US Letter):
   - Single label
   - Avery 5160
   - Generic 30-up (1in × 2 5/8in)
   - Avery 5163
   - Multi-page overflow preview
+- NIIMBOT thermal roll templates (D11 / D110 / D101 / H1S, 12mm tape):
+  - T12*22-260 (12 × 22mm)
+  - T12*40-160 (12 × 40mm)
+  - T12*75-95 (12 × 75mm)
 - Print-ready output
 - JSON export and JSON import of label configurations
 - Workspace-style dotted background in preview area (non-print)
@@ -106,3 +110,14 @@ Import expects this structure and restores labels + template selection.
 - Printing uses dedicated `@media print` styles.
 - Non-print UI is hidden automatically.
 - Sheet pages break correctly for multi-page output.
+
+### NIIMBOT roll labels
+
+- Each label prints as its own page sized exactly to the stock (e.g. `75mm × 12mm`),
+  so quantity 5 produces 5 pages.
+- Roll labels are shown enlarged in the preview; they print at true size.
+- In the print dialog, set scale to 100% (not "Fit to page") and pick the NIIMBOT
+  printer before printing, so the page size set by the app is used as-is.
+- 12mm of tape leaves roughly 10mm of printable height — about three short lines.
+  The templates drop detail lines on the narrower stock rather than shrinking text
+  to an unreadable size, and the location line is always kept.

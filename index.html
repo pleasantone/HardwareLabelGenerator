@@ -277,12 +277,19 @@
 
         <div class="row">
           <div class="form-group">
-            <label for="averyTemplate">Avery Template</label>
+            <label for="averyTemplate">Label Template</label>
             <select id="averyTemplate" name="averyTemplate">
-              <option value="single" selected>Single Label (4in × 2.25in)</option>
-              <option value="5160">Avery 5160 (30 labels)</option>
-              <option value="generic30">Generic 30 (1in × 2 5/8in)</option>
-              <option value="5163">Avery 5163 (10 labels)</option>
+              <optgroup label="Sheet (Letter)">
+                <option value="single" selected>Single Label (4in × 2.25in)</option>
+                <option value="5160">Avery 5160 (30 labels)</option>
+                <option value="generic30">Generic 30 (1in × 2 5/8in)</option>
+                <option value="5163">Avery 5163 (10 labels)</option>
+              </optgroup>
+              <optgroup label="NIIMBOT Roll (D11 / D110 / D101 / H1S)">
+                <option value="niimbot12x22">T12*22-260 (12 × 22mm)</option>
+                <option value="niimbot12x40">T12*40-160 (12 × 40mm)</option>
+                <option value="niimbot12x75">T12*75-95 (12 × 75mm)</option>
+              </optgroup>
             </select>
           </div>
           <div class="form-group">
