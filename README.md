@@ -120,4 +120,20 @@ Import expects this structure and restores labels + template selection.
   printer before printing, so the page size set by the app is used as-is.
 - 12mm of tape leaves roughly 10mm of printable height — about three short lines.
   The templates drop detail lines on the narrower stock rather than shrinking text
-  to an unreadable size, and the location line is always kept.
+  to an unreadable size. Location is the lowest-priority line: it fills leftover
+  space and is the first thing dropped.
+
+What each 12mm template prints, highest priority first:
+
+| | T12*22 | T12*40 | T12*75 |
+| --- | :-: | :-: | :-: |
+| Title | ✅ | ✅ | ✅ |
+| Dimensions | ✅ | ✅ | ✅ |
+| Drawing | — | ✅ | ✅ |
+| Subtitle | — | ✅ (short) | ✅ (full) |
+| Material / finish | — | ✅ | ✅ |
+| Vendor, SKU | — | — | — |
+| Location | — | if room | if room |
+
+Titles omit the "Metric"/"SAE" word throughout the app, since the size designation
+already implies it (`M6x1.0` vs `1/4-20`).

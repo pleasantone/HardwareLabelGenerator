@@ -70,9 +70,15 @@ Because `@page` cannot be scoped to an element, `updatePageSizeRule()` swaps a d
 | `compact` | `labelHeight <= 1.2in` | smaller type, location folded into meta |
 | `micro` | set explicitly by roll templates | mm/pt sizing, single SVG view, one line per detail |
 
-Roll templates additionally carry a content budget consumed by `renderLabelMarkup()`: `showVisuals`, `showSubtitle`, `maxMetaLines`, and `titleLines` (emitted as the `--title-lines` custom property and enforced with `line-clamp`).
+Roll templates additionally carry a content budget consumed by `renderLabelMarkup()`: `showVisuals`, `showSubtitle`, `shortSubtitle`, `maxMetaLines`, and `titleLines` (emitted as the `--title-lines` custom property and enforced with `line-clamp`).
 
-At 12mm tape there are only ~10mm and ~3 short lines of printable height, so `.label--micro` sets `overflow: hidden` as a hard guarantee against spilling onto the adjacent label, and clamps each `.label-meta-line` to one line with an ellipsis. `maxMetaLines` counts only the detail lines from `buildMetaLines()` — the location line is appended afterwards so it is never the thing that gets truncated. If you widen what micro labels show, re-measure: `scrollHeight > clientHeight` on `.label-main` is the overflow test.
+`shortSubtitle` drops the end type from screw subtitles. That is safe because micro density renders the **side** view, which draws the end (a taper for `pointed`, a blunt rect for `flat`), whereas `renderDriveSymbol()` runs only in the `view === 'top'` branch — so the drive is the segment nothing else conveys and must be kept. Headless screws keep both segments, having no other descriptor.
+
+At 12mm tape there are only ~10mm and ~3 short lines of printable height, so `.label--micro` sets `overflow: hidden` as a hard guarantee against spilling onto the adjacent label, and clamps each `.label-meta-line` to one line with an ellipsis.
+
+The line budget is measured, not estimated: on 12mm stock `.label-main` is 38px, a title is 12.5px, a subtitle 8.1px and a detail line 8px. That is why enabling `showSubtitle` costs exactly one `maxMetaLines`. If you change what micro labels show, re-measure rather than reasoning about it — `scrollHeight > clientHeight` on `.label-main` is the overflow test.
+
+Location ranks below every other detail: it is appended to the list *before* `maxMetaLines` is applied, so it fills leftover space and is the first line dropped when the budget runs out.
 
 Micro type is sized in `pt`/`mm` rather than `rem` so output is predictable at the printer's 203dpi instead of tracking screen pixels.
 
