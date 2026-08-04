@@ -145,6 +145,16 @@ button {
   margin-bottom: 0;
 }
 
+.hint {
+  margin: -2px 0 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--border);
+  background: #fafafa;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -156,7 +156,13 @@ Import expects this structure and restores labels + template selection.
   true size, so quantity 5 produces 5 pages. This matches what the label
   printer's own software emits — a 14-label T12*40 job is 14 pages of
   40.05 × 12.02mm — so nothing is scaled to fit a sheet.
-- The print dialog can override the page size the app asks for. If the PDF comes
+- **Safari ignores the page size.** WebKit has never implemented `@page { size }`,
+  so Safari prints on whatever the dialog's **Paper Size** is — Letter by default.
+  Fix it in the dialog, not the app: Paper Size → Manage Custom Sizes… → add one
+  matching the stock (e.g. 40 × 12mm) with all four margins 0, then select it.
+  Chrome reads the size from the app and needs none of this. The app shows this
+  reminder next to the template picker whenever a roll template is selected.
+- The print dialog can override the page size in any browser. If the PDF comes
   out as a sheet with a small label on it, check the dialog: **Paper size**
   must not be forced to Letter/A4, **Margins** should be None (or Default, never
   custom), and **Scale** should be 100%, not "Fit to page". If it does come out

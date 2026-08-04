@@ -153,6 +153,7 @@ const setScrewPitchLabel = document.getElementById('setScrewPitchLabel');
 
 const sheetPreview = document.getElementById('sheetPreview');
 const sheetNotice = document.getElementById('sheetNotice');
+const rollPrintHint = document.getElementById('rollPrintHint');
 
 let labelConfigs = [];
 let activeLabelIndex = 0;
@@ -1415,6 +1416,25 @@ function updateSheetNotice(totalCount, capacity, pageCount, template) {
   sheetNotice.textContent = `${template.label} preview • ${labelWord} across ${pageCount} page${pageCount === 1 ? '' : 's'} (${capacity} per page)`;
 }
 
+// The page size the app asks for is only half the job: Chrome reads it, Safari
+// has never implemented `@page { size }` and prints on whatever paper the
+// dialog is set to. Nothing in the CSS can fix that, so the requirement is put
+// where it can be acted on — beside the template that needs it.
+function updateRollPrintHint(template) {
+  if (!rollPrintHint) {
+    return;
+  }
+
+  const isRoll = template.media === 'roll';
+  rollPrintHint.classList.toggle('is-hidden', !isRoll);
+
+  if (isRoll) {
+    rollPrintHint.textContent = `Prints one label per ${template.widthMm} × ${template.heightMm}mm page. `
+      + 'Safari ignores that size and uses the print dialog\'s paper: set Paper Size to a matching '
+      + 'custom size with zero margins, or print from Chrome.';
+  }
+}
+
 // @page cannot be scoped to an element, so the paper size for roll media has to
 // be swapped at the document level whenever the template changes.
 function updatePageSizeRule(template) {
@@ -1486,6 +1506,7 @@ function updatePreview() {
   applyTextFallbacks(sheetPreview);
 
   updatePageSizeRule(template);
+  updateRollPrintHint(template);
   refreshLabelPicker();
   updateSheetNotice(totalLabelCount, capacity, pageCount, template);
 
