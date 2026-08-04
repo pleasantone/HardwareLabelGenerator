@@ -515,19 +515,28 @@ button {
     width: 100%;
   }
 
-  /* Roll stock prints at true size on a page cut to the label, so this centring
-     is normally a no-op — the label already is the page. It earns its keep when
-     the print dialog overrides the page size and hands out a sheet instead:
-     the label then lands in the middle at true size rather than in a corner,
-     which is the difference between a usable job and a reprint.
+  /* Centred horizontally with auto margins and nothing else. Vertical centring
+     needs the page height, and the only way to name that in CSS is `vh`, which
+     Safari resolves against the *screen* viewport when printing: a roll page
+     became ~1500px tall, spanned about 34 sheets of 12mm tape with the label
+     buried in the middle, and turned three labels into 102 pages. There is no
+     bounded version of that — a cap either breaks the centring or keeps the
+     overflow — so the page height is simply never asked for.
 
-     Sheet templates are left alone: their padding is measured from the sheet's
-     edge, so centring would walk them off the die-cuts. */
+     Sheet templates are left alone even here: their padding is measured from
+     the sheet's edge, so centring would walk them off the die-cuts. */
+  .label-sheet-grid[data-media='roll'] {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* macOS rounds a custom paper size down — ask for 12mm and it stores 33.84pt,
+     which is 11.94mm — so a 12mm label overruns its own page by a twentieth of
+     a millimetre and the remainder claims a second, near-blank page. An
+     overflow container is monolithic to the fragmenter: the label stays whole
+     on one page and the sliver is clipped instead of paginated. */
   .sheet-page[data-media='roll'] {
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
   }
 
   .sheet-notice {

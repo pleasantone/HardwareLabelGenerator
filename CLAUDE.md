@@ -110,7 +110,13 @@ Because `@page` cannot be scoped to an element, `updatePageSizeRule()` swaps a d
 
 Roll output is a page cut to the label at true size, one label per page, and it is deliberately **not** scaled up to fill a sheet. That matches what the label printer's own software emits: a 14-label T12*40 job from it is 14 pages of 40.05 × 12.02mm. A previous attempt to blow the label up to a sheet width was wrong on both counts — it did not match the reference, and it broke printing straight to the tape.
 
-The print dialog can still override the page size, which looks exactly like the app getting it wrong: the label appears small on a Letter page. `.sheet-page[data-media='roll']` centres in `100vh` for that case only — normally the label *is* the page and the centring does nothing, but when the dialog hands out a sheet the label lands in the middle at true size rather than in a corner. Sheet templates are never centred or scaled: their padding is measured from the sheet edge, so either would walk them off the die-cuts.
+Safari never implemented `@page { size }` at all: it prints on whatever paper the dialog holds, so the size has to be set there as a custom paper size. `updateRollPrintHint()` says so beside the template, because no amount of CSS can fix it from inside.
+
+**Never use `vh` in the print rules.** Safari resolves it against the screen viewport rather than the page box, and a roll `.sheet-page` set to `height: 100vh` became ~1500px tall — about 34 sheets of 12mm tape each, with the label buried in the middle, turning three labels into 102 pages. There is no bounded version: a cap small enough to be safe breaks the centring it was for. Roll pages are therefore centred horizontally with auto margins and never ask for the page height.
+
+`.sheet-page[data-media='roll']` also carries `overflow: hidden` in print. macOS rounds a custom paper size down — ask for 12mm and it stores 33.84pt, or 11.94mm — so a 12mm label overruns its own page by a twentieth of a millimetre and the remainder would claim a second, near-blank page. An overflow container is monolithic to the fragmenter, so the label stays whole on one page and the sliver is clipped instead.
+
+Sheet templates are never centred or scaled: their padding is measured from the sheet edge, so either would walk them off the die-cuts.
 
 ### Three density tiers
 
