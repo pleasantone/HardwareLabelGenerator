@@ -170,10 +170,45 @@ const HEAD_LABELS = {
 
 const DRIVE_LABELS = {
   phillips: 'Phillips',
+  jis: 'JIS Cross',
   hex: 'Hex',
   torx: 'Torx',
   securityTorx: 'Security Torx',
+  square: 'Square',
   slotted: 'Slotted'
+};
+
+const SCREW_TYPE_LABELS = {
+  machine: 'Machine Screw',
+  sheetMetal: 'Sheet Metal Screw',
+  wood: 'Wood Screw',
+  drywall: 'Drywall Screw',
+  plastic: 'Thread-Forming Screw',
+  lag: 'Lag Screw'
+};
+
+const SCREW_TYPE_SHORT_LABELS = {
+  machine: 'Machine',
+  sheetMetal: 'Sheet Metal',
+  wood: 'Wood',
+  drywall: 'Drywall',
+  plastic: 'Thread-Form',
+  lag: 'Lag'
+};
+
+// What a box of each type is normally full of. `threadRatio` scales the machine
+// coarse pitch for the size: a wood screw at 2.3x really is about a tenth of an
+// inch between crests where an M5 machine screw is 0.8mm. Like everything in
+// fastener-data.js these are tuned to be right to a turn or so, not to spec.
+// The head and tip come with the type — a wood screw countersinks and bites,
+// a machine screw sits on the surface and butts against a nut.
+const SCREW_TYPE_DEFAULTS = {
+  machine: { threadRatio: 1, tip: 'flat', head: 'pan' },
+  sheetMetal: { threadRatio: 2, tip: 'pointed', head: 'pan' },
+  wood: { threadRatio: 2.3, tip: 'pointed', head: 'flat82' },
+  drywall: { threadRatio: 2.3, tip: 'pointed', head: 'flat82' },
+  plastic: { threadRatio: 2.2, tip: 'pointed', head: 'pan' },
+  lag: { threadRatio: 2.3, tip: 'pointed', head: 'hex' }
 };
 
 const END_TYPE_LABELS = {
@@ -303,6 +338,14 @@ function normalizeNutStyle(style, isLockNut = false) {
   return isLockNut ? 'lock' : 'hex';
 }
 
+function normalizeScrewType(screwType) {
+  return SCREW_TYPE_DEFAULTS[screwType] ? screwType : 'machine';
+}
+
+function getScrewTypeDefaults(screwType) {
+  return SCREW_TYPE_DEFAULTS[normalizeScrewType(screwType)];
+}
+
 function normalizeWasherStyle(style) {
   return WASHER_STYLE_LABELS[style] ? style : 'flat';
 }
@@ -321,6 +364,9 @@ function normalizePart(part) {
 
   const normalized = {
     ...part,
+    // Absent on anything exported before screw types existed, and those were
+    // all machine screws.
+    screwType: normalizeScrewType(part.screwType),
     lengths: typeof part.lengths === 'string' ? part.lengths : '',
     lengthStyle: part.lengthStyle === 'list' ? 'list' : 'range',
     washerStyle: normalizeWasherStyle(part.washerStyle),
@@ -560,7 +606,9 @@ function getCurrentPart() {
   const setScrewLengthMm = standard === 'sae' ? inchesToMm(setScrewLengthInput) : setScrewLengthInput;
   const isScrewHeadless = getChecked('screwHeadless');
 
-  const head = getValue('head') || 'pan';
+  const screwType = normalizeScrewType(getValue('screwType'));
+  const screwTypeDefaults = getScrewTypeDefaults(screwType);
+  const head = getValue('head') || screwTypeDefaults.head;
   const screwDrive = resolveDriveForHead(head, getValue('drive') || 'phillips', isScrewHeadless);
   const setScrewDrive = getValue('setScrewDrive') || 'hex';
   const setScrewPoint = getValue('setScrewPoint') || 'cup';
@@ -578,8 +626,9 @@ function getCurrentPart() {
     pitch,
     threadValue: isSetScrew ? setScrewThreadInput : threadInput,
     head,
+    screwType,
     drive: isSetScrew ? setScrewDrive : screwDrive,
-    endType: isSetScrew ? setScrewPoint : (getValue('endType') || 'pointed'),
+    endType: isSetScrew ? setScrewPoint : (getValue('endType') || screwTypeDefaults.tip),
     isHeadless: isScrewHeadless,
     material: getValue('material'),
     finish: getValue('finish'),
@@ -624,10 +673,11 @@ function applyPartToForm(part) {
   setField('setScrewLength', normalizedPart.lengthDisplay || 8);
   setField('pitch', normalizedPart.standard === 'sae' ? (normalizedPart.threadValue || 20) : (normalizedPart.pitch || 0.7));
   setField('setScrewPitch', normalizedPart.standard === 'sae' ? (normalizedPart.threadValue || 20) : (normalizedPart.pitch || 0.7));
-  setField('head', normalizedPart.head || 'pan');
+  setField('screwType', normalizeScrewType(normalizedPart.screwType));
+  setField('head', normalizedPart.head || getScrewTypeDefaults(normalizedPart.screwType).head);
   setField('drive', resolveDriveForHead(normalizedPart.head || 'pan', normalizedPart.drive || 'phillips', Boolean(normalizedPart.isHeadless)));
   setField('setScrewDrive', normalizedPart.drive || 'hex');
-  setField('endType', normalizedPart.endType || 'pointed');
+  setField('endType', normalizedPart.endType || getScrewTypeDefaults(normalizedPart.screwType).tip);
   setField('setScrewPoint', normalizedPart.endType || 'cup');
   setField('lengths', normalizedPart.lengths || '');
   setField('lengthStyle', normalizedPart.lengthStyle || 'range');
@@ -702,16 +752,33 @@ function getSheetSettings() {
   };
 }
 
-function syncTypeSpecificDefaults({ resetLength = false } = {}) {
+// `resetScrewType` also re-seeds the head and tip, which belong to the screw
+// type rather than to the size — so changing the size leaves them alone.
+function syncTypeSpecificDefaults({ resetLength = false, resetScrewType = false } = {}) {
   const standard = getValue('standard') || 'metric';
   const size = getValue('size') || getDefaultSizeForStandard(standard);
   const sizeData = getSizeData(standard, size);
+  const screwTypeDefaults = getScrewTypeDefaults(getValue('screwType'));
 
   const pitchInput = document.getElementById('pitch');
   if (pitchInput) {
+    // Coarser thread, fewer turns per inch — the ratio divides the TPI where it
+    // multiplies the pitch.
     pitchInput.value = standard === 'sae'
-      ? (sizeData.threadPerInch || Math.round(25.4 / sizeData.coarsePitch))
-      : sizeData.coarsePitch;
+      ? Math.round((sizeData.threadPerInch || Math.round(25.4 / sizeData.coarsePitch)) / screwTypeDefaults.threadRatio)
+      : Number((sizeData.coarsePitch * screwTypeDefaults.threadRatio).toFixed(2));
+  }
+
+  if (resetScrewType) {
+    const headSelect = document.getElementById('head');
+    const endTypeSelect = document.getElementById('endType');
+    if (headSelect) {
+      headSelect.value = screwTypeDefaults.head;
+    }
+    if (endTypeSelect) {
+      endTypeSelect.value = screwTypeDefaults.tip;
+    }
+    syncDriveWithHeadSelection();
   }
 
   const lengthInput = document.getElementById('length');
@@ -871,15 +938,29 @@ function renderFastenerViews(basePart, { maxAssortmentItems = 3 } = {}) {
   }
 }
 
+// A size designation names a machine thread — `M5x0.8` is a 0.8mm pitch, `1/4-20`
+// is 20 turns to the inch. A wood or sheet-metal screw in that hole has neither,
+// so it is named by its nominal diameter instead of by a thread it does not cut.
+function renderSizeName(part) {
+  if (part.type !== 'screw' || normalizeScrewType(part.screwType) === 'machine') {
+    return part.size;
+  }
+
+  return part.standard === 'sae'
+    ? String(part.size).replace(/-\d+$/, '')
+    : `${formatNumber(part.diameter, 2)}mm`;
+}
+
 // `short` is for stock that clamps the title to a line or two: an enumerated
 // length list collapses back to its endpoints rather than being cut off
 // mid-number, and the longest words give way to ones that fit.
 function renderTitle(part, { short = false } = {}) {
   if (part.type === 'screw' || part.type === 'setScrew') {
     const spec = parseLengthSpec(part);
+    const size = renderSizeName(part);
     return spec
-      ? `${part.size} × ${formatLengthSpec(part, spec, { forceRange: short })}`
-      : `${part.size} × ${formatNumber(part.lengthDisplay, 2)}${part.lengthUnit}`;
+      ? `${size} × ${formatLengthSpec(part, spec, { forceRange: short })}`
+      : `${size} × ${formatNumber(part.lengthDisplay, 2)}${part.lengthUnit}`;
   }
 
   if (part.type === 'assortment') {
@@ -930,7 +1011,13 @@ function renderAssortmentContents(part, { tier = 'full' } = {}) {
       continue;
     }
 
-    const label = labels[item] || item;
+    // A box of wood screws says so, at both tiers — "Wood Screws" is no longer
+    // than "Flat Washers" beside it.
+    const screwType = normalizeScrewType(part.screwType);
+    const label = item === 'screw' && screwType !== 'machine'
+      ? `${SCREW_TYPE_SHORT_LABELS[screwType]} Screws`
+      : (labels[item] || item);
+
     contents.push(item === 'screw' && spec
       ? `${label} ${formatLengthSpec(part, spec, { forceRange: true })}`
       : label);
@@ -953,14 +1040,21 @@ function renderSubtitle(part, { short = false, tier = 'full' } = {}) {
     const drive = DRIVE_LABELS[part.drive] || 'Drive';
     const endType = END_TYPE_LABELS[part.endType] || 'Pointed End';
 
+    // Machine is the assumption everywhere else in the app, so only the types
+    // that break it are named — otherwise every screw label grows a segment
+    // that says nothing.
+    const screwType = normalizeScrewType(part.screwType);
+    const typeLabels = short ? SCREW_TYPE_SHORT_LABELS : SCREW_TYPE_LABELS;
+    const prefix = screwType === 'machine' ? '' : `${typeLabels[screwType]} • `;
+
     if (part.isHeadless) {
       // Nothing else describes a headless screw, so both segments are kept.
-      return `${head} • ${endType}`;
+      return `${prefix}${head} • ${endType}`;
     }
 
     return short
-      ? `${head} • ${drive}`
-      : `${head} • ${drive} • ${endType}`;
+      ? `${prefix}${head} • ${drive}`
+      : `${prefix}${head} • ${drive} • ${endType}`;
   }
 
   if (part.type === 'setScrew') {
@@ -1457,6 +1551,10 @@ form.addEventListener('change', (event) => {
 
   if (event.target.id === 'nutStyle') {
     syncTypeSpecificDefaults();
+  }
+
+  if (event.target.id === 'screwType') {
+    syncTypeSpecificDefaults({ resetScrewType: true });
   }
 
   updateFormOptions();

@@ -50,6 +50,22 @@ function renderDriveSymbol(drive, cx, y, width) {
         <circle cx="${cx}" cy="${y}" r="${pinRadius}" fill="#fff" stroke="#111" stroke-width="1.8" />
       `;
     }
+    // A JIS cross is drawn like a Phillips because that is what it looks like;
+    // the dimple stamped beside the recess is the only thing that tells them
+    // apart on the real screw, so it is the whole point of this symbol. It sits
+    // out at 45°, where the cross arms leave the head clear.
+    case 'jis': {
+      const dotOffset = width * 0.3;
+      return `
+        <line x1="${cx - half}" y1="${y}" x2="${cx + half}" y2="${y}" stroke="#111" stroke-width="2" />
+        <line x1="${cx}" y1="${y - half}" x2="${cx}" y2="${y + half}" stroke="#111" stroke-width="2" />
+        <circle cx="${cx + dotOffset}" cy="${y - dotOffset}" r="${Math.max(1.6, width * 0.09)}" fill="#111" />
+      `;
+    }
+    case 'square': {
+      const side = width * 0.58;
+      return `<rect x="${cx - side / 2}" y="${y - side / 2}" width="${side}" height="${side}" fill="none" stroke="#111" stroke-width="2" />`;
+    }
     case 'slotted':
       return `<line x1="${cx - half}" y1="${y}" x2="${cx + half}" y2="${y}" stroke="#111" stroke-width="2" />`;
     default:
@@ -210,6 +226,52 @@ function getHeadGeometry(headType, centerX, headTopY, shaftWidth) {
   }
 }
 
+// Machine threads are fine enough that hatching across a straight shank reads
+// correctly. Everything below cuts a thread deep enough to see, so the shank is
+// drawn at its root diameter with the crests standing out from it.
+export const COARSE_THREAD_TYPES = new Set(['sheetMetal', 'wood', 'drywall', 'plastic', 'lag']);
+
+// Screws that bite into their own hole: the shank above the thread is left
+// smooth so the joint pulls tight.
+const PARTIAL_THREAD_TYPES = new Set(['wood', 'lag']);
+
+// Root diameter as a fraction of the crest. These are cut deeper than the real
+// ratios: at label size the shank is around ten units wide, and anything
+// shallower than about half reads as a wavy line rather than as a thread.
+const THREAD_DEPTH = { plastic: 0.4, sheetMetal: 0.5, drywall: 0.46, wood: 0.46, lag: 0.54 };
+
+// One sawtooth per pitch down each edge, the right edge half a pitch behind the
+// left — the same offset the helix itself has, which is what stops the outline
+// reading as a row of diamonds.
+function renderCoarseThread(centerX, shaftWidth, topY, bottomY, pitchPx, screwType) {
+  const outerHalf = shaftWidth / 2;
+  const rootHalf = outerHalf * (THREAD_DEPTH[screwType] || 0.62);
+  const steps = Math.max(2, Math.round((bottomY - topY) / pitchPx));
+  const step = (bottomY - topY) / steps;
+
+  const points = [];
+
+  for (let index = 0; index <= steps; index += 1) {
+    const y = topY + (index * step);
+    points.push([centerX - outerHalf, y]);
+    if (index < steps) {
+      points.push([centerX - rootHalf, y + (step / 2)]);
+    }
+  }
+
+  for (let index = steps; index >= 0; index -= 1) {
+    const y = topY + (index * step);
+    if (index < steps) {
+      points.push([centerX + rootHalf, y + (step / 2)]);
+    }
+    points.push([centerX + outerHalf, y]);
+  }
+
+  // Mitered, not rounded: a rounded join turns the crests into a wave, which is
+  // the one thing a coarse thread must not look like.
+  return `<polygon points="${points.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ')}" fill="#fff" stroke="#111" stroke-width="1.8" stroke-miterlimit="6" />`;
+}
+
 function getResolvedHeadData(sizeData, headType) {
   const baseHead = sizeData.heads[headType] || sizeData.heads.pan;
   const scales = {
@@ -242,23 +304,41 @@ export function renderScrewSVG(part, view = 'side') {
   const endType = part.endType || 'pointed';
   const isHeadless = Boolean(part.isHeadless);
 
+  const screwType = part.screwType || 'machine';
+  const isCoarse = COARSE_THREAD_TYPES.has(screwType);
+
   const centerX = 60;
   const shaftTopY = isHeadless ? 18 : 34;
   const shaftWidth = clamp(diameter * 2.1, 7, 20);
   const shaftHeight = clamp(length * 4.4, 38, 98);
   const shaftBottomY = shaftTopY + shaftHeight;
-  const tipHeight = clamp(diameter * 3.2, 12, 20);
+  // A screw that cuts its own hole needs a long gimlet point; a machine screw
+  // is chamfered at most.
+  const tipHeight = isCoarse
+    ? clamp(diameter * 4.6, 16, 28)
+    : clamp(diameter * 3.2, 12, 20);
   const tipBottomY = shaftBottomY + tipHeight;
 
   const headHeightPx = clamp(headData.headHeight * 6, 10, 26);
   const headTopY = clamp(34 - headHeightPx, 8, 24);
   const headMarkup = isHeadless ? '' : getHeadGeometry(part.head, centerX, headTopY, shaftWidth);
 
-  const pitchPx = clamp((pitch / sizeData.coarsePitch) * 8, 5, 11);
+  // Pitch is drawn to scale against the machine-thread pitch for this size, so a
+  // wood screw at twice the pitch really does show half the turns.
+  const pitchPx = clamp((pitch / sizeData.coarsePitch) * 8, 5, 22);
+
+  // Partly-threaded screws keep the top of the shank smooth; the thread runs
+  // from there to the point.
+  const threadTopY = PARTIAL_THREAD_TYPES.has(screwType)
+    ? shaftTopY + Math.min(shaftHeight * 0.34, 26)
+    : shaftTopY;
+
   let threadLines = '';
 
-  for (let y = shaftTopY + 4; y < shaftBottomY - 4; y += pitchPx) {
-    threadLines += `<line x1="${centerX - shaftWidth / 2}" y1="${y}" x2="${centerX + shaftWidth / 2}" y2="${y + 3}" stroke="#111" stroke-width="1" />`;
+  if (!isCoarse) {
+    for (let y = shaftTopY + 4; y < shaftBottomY - 4; y += pitchPx) {
+      threadLines += `<line x1="${centerX - shaftWidth / 2}" y1="${y}" x2="${centerX + shaftWidth / 2}" y2="${y + 3}" stroke="#111" stroke-width="1" />`;
+    }
   }
 
   const headLabel = toTitleCase(part.head || 'pan');
@@ -303,10 +383,19 @@ export function renderScrewSVG(part, view = 'side') {
     ? `<rect x="${centerX - shaftWidth / 2}" y="${shaftBottomY}" width="${shaftWidth}" height="6" fill="#fff" stroke="#111" stroke-width="2" />`
     : `<polygon points="${centerX - shaftWidth / 2},${shaftBottomY} ${centerX + shaftWidth / 2},${shaftBottomY} ${centerX},${tipBottomY}" fill="#fff" stroke="#111" stroke-width="2" />`;
 
+  // The smooth part of the shank is a plain rect; only the threaded run below it
+  // carries the sawtooth, so a partly-threaded screw shows both.
+  const shaftMarkup = isCoarse
+    ? `
+      ${threadTopY > shaftTopY ? `<rect x="${centerX - shaftWidth / 2}" y="${shaftTopY}" width="${shaftWidth}" height="${threadTopY - shaftTopY + 1}" fill="#fff" stroke="#111" stroke-width="2" />` : ''}
+      ${renderCoarseThread(centerX, shaftWidth, threadTopY, shaftBottomY, pitchPx, screwType)}
+    `
+    : `<rect x="${centerX - shaftWidth / 2}" y="${shaftTopY}" width="${shaftWidth}" height="${shaftHeight}" fill="#fff" stroke="#111" stroke-width="2" />`;
+
   return `
     <svg viewBox="0 0 120 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${isHeadless ? `Headless ${endLabel}` : `${headLabel} ${driveLabel} ${endLabel}`} screw side view">
       ${headMarkup}
-      <rect x="${centerX - shaftWidth / 2}" y="${shaftTopY}" width="${shaftWidth}" height="${shaftHeight}" fill="#fff" stroke="#111" stroke-width="2" />
+      ${shaftMarkup}
       ${threadLines}
       ${endMarkup}
     </svg>

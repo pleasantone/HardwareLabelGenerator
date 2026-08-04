@@ -81,6 +81,29 @@
           </div>
         </div>
 
+        <!-- Also shown for assortments: both fields drive the screw drawing in a
+             mixed box, and the type names it in the contents. -->
+        <div class="row config-group" data-types="screw,assortment">
+          <div class="form-group">
+            <label for="screwType">Screw Type</label>
+            <select id="screwType" name="screwType">
+              <option value="machine" selected>Machine</option>
+              <option value="sheetMetal">Sheet Metal / Self-Tapping</option>
+              <option value="wood">Wood</option>
+              <option value="drywall">Drywall</option>
+              <option value="plastic">Thread-Forming (Plastic)</option>
+              <option value="lag">Lag</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="endType">Tip / End Type</label>
+            <select id="endType" name="endType">
+              <option value="flat" selected>Flat</option>
+              <option value="pointed">Pointed</option>
+            </select>
+          </div>
+        </div>
+
         <div class="row config-group" data-types="screw">
           <div class="form-group">
             <label for="head">Head Type</label>
@@ -104,9 +127,11 @@
             <label for="drive">Drive Type</label>
             <select id="drive" name="drive">
               <option value="phillips" selected>Phillips</option>
+              <option value="jis">JIS (Cross + Dot)</option>
               <option value="hex">Hex</option>
               <option value="torx">Torx</option>
               <option value="securityTorx">Security Torx</option>
+              <option value="square">Square (Robertson)</option>
               <option value="slotted">Slotted</option>
             </select>
           </div>
@@ -135,14 +160,6 @@
               <option value="list">List (30/35/40)</option>
             </select>
           </div>
-        </div>
-
-        <div class="form-group config-group" data-types="screw">
-          <label for="endType">Tip / End Type</label>
-          <select id="endType" name="endType">
-            <option value="pointed" selected>Pointed</option>
-            <option value="flat">Flat</option>
-          </select>
         </div>
 
         <div class="form-group config-group" data-types="screw">

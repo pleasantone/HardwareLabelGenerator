@@ -40,6 +40,14 @@ SAE is a presentation/input concern only. `getCurrentPart()` converts inch lengt
 
 Type-specific field groups are declared in HTML as `.config-group[data-types="screw,nut"]`. `updateFormOptions()` toggles `.is-hidden` and sets `disabled` on their controls based on the selected type. Adding a new type-specific control means adding a `data-types` group in `index.html` — no JS registry to update.
 
+### Screw types carry their own defaults
+
+`screwType` (machine, sheetMetal, wood, drywall, plastic, lag) is what a screw *is*, and `SCREW_TYPE_DEFAULTS` holds what comes with that: a `threadRatio` scaling the size's machine coarse pitch, a `tip`, and a `head`. Changing the type calls `syncTypeSpecificDefaults({ resetScrewType: true })`, which re-seeds all three — changing the *size* deliberately does not, since head and tip belong to the type. The ratio multiplies a metric pitch and divides an SAE TPI, being the same statement either way round.
+
+Machine is the assumption the rest of the app already makes, so it is the only type that adds nothing: no subtitle segment, and `renderSizeName()` keeps the size as it is. Every other type is named in the subtitle and drops the thread designation from the title, because `M5x0.8` and `1/4-20` name a machine thread that a wood screw does not cut — those titles read `5mm × 30mm` and `1/4 × 1.25in`.
+
+In the renderer, `COARSE_THREAD_TYPES` draw a sawtooth silhouette at the pitch instead of hatching a straight shank, `PARTIAL_THREAD_TYPES` leave the top of the shank smooth, and both get a longer gimlet point. `THREAD_DEPTH` is cut deeper than the real root ratios: at label size the shank is about ten units wide, and anything shallower reads as a wavy line rather than a thread. Check any change to it by rasterising, not by reasoning — the failure mode is subtle at 4x and invisible in the numbers.
+
 ### A label can describe more than one part
 
 Two fields let one label cover a whole bin, and they compose:

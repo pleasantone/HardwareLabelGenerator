@@ -17,8 +17,12 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
 - Dynamic form options by hardware type
 - Metric and inch/SAE support for threaded hardware
 - Detailed screw controls:
+  - Screw type (machine, sheet metal / self-tapping, wood, drywall,
+    thread-forming for plastic, lag), each seeding its own thread pitch, head
+    and tip, and each drawn with the thread it actually cuts
   - Head type
-  - Drive type
+  - Drive type (Phillips, JIS, hex, Torx, security Torx, square/Robertson,
+    slotted)
   - End type
   - Optional headless mode
 - Set screw controls:
@@ -165,3 +169,9 @@ itself `M12x1.75 Kit` on the 40mm tape but stays `M12x1.75 Assortment` on the
 75mm. The same applies outside assortments: a length list stays a list where it
 fits and becomes a range where it does not, and nut, washer and bearing dimension
 lines drop their last figure only when the line would overflow.
+
+What is left is a hard budget, not an item count: roughly 25 characters on the
+40mm tape and 19 on the 22mm. Three items fit comfortably; a fourth fits only if
+the names are short, so `Nuts • Flat/Lock/Star Wshr` makes it and
+`Screws • Nuts • Flat/Lock Wshr` still ends in an ellipsis. The drawings and the
+size in the title carry the rest.
