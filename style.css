@@ -525,19 +525,22 @@ button {
 
      Sheet templates are left alone even here: their padding is measured from
      the sheet's edge, so centring would walk them off the die-cuts. */
-  /* macOS rounds a custom paper size down — ask for 12mm and it stores 33.84pt,
-     which is 11.94mm — so a label cut to the nominal size overruns its own page
-     by a twentieth of a millimetre and the remainder takes a second, blank one.
-     Three labels printed as six pages.
+  /* Safari scales the page to fill the paper width, so shrinking the label
+     uniformly achieves nothing — it renormalises whatever scale it is given. A
+     2% reduction came back as a 1.8% enlargement and printed at full size.
 
-     `overflow: hidden` does not fix it: that makes a box monolithic for its
-     contents, but the box itself is still taller than the paper. The label has
-     to be smaller than the page, so it is scaled down by 2% — 0.24mm on 12mm
-     stock, about two dots at 203dpi, against the half a percent macOS takes.
-     Scaling rather than trimming the height keeps the proportions, so nothing
-     is clipped and the fitted wordings stay valid. */
+     What survives fit-to-width is the aspect ratio: the printed height is
+     labelHeight x paperWidth / labelWidth. macOS rounds a custom paper size
+     down and not quite evenly (ask for 40 x 12mm and it stores 39.88 x
+     11.94mm, a shade wider in proportion than the stock), so a label at the
+     nominal 12mm lands a few hundredths of a millimetre over the page and the
+     remainder takes a second, blank one — three labels as five or six pages.
+
+     Trimming 1% off the height alone is what fits, and only the height: touch
+     the width and Safari scales it straight back. 0.12mm on 12mm stock, one
+     dot at 203dpi. */
   .label-sheet-grid[data-media='roll'] {
-    zoom: 0.98;
+    grid-auto-rows: calc(var(--label-height) * 0.99);
     margin-left: auto;
     margin-right: auto;
   }

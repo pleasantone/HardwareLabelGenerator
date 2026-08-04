@@ -114,7 +114,13 @@ Safari never implemented `@page { size }` at all: it prints on whatever paper th
 
 **Never use `vh` in the print rules.** Safari resolves it against the screen viewport rather than the page box, and a roll `.sheet-page` set to `height: 100vh` became ~1500px tall — about 34 sheets of 12mm tape each, with the label buried in the middle, turning three labels into 102 pages. There is no bounded version: a cap small enough to be safe breaks the centring it was for. Roll pages are therefore centred horizontally with auto margins and never ask for the page height.
 
-**The printed roll label is 2% smaller than the stock**, via `zoom: 0.98`. macOS rounds a custom paper size down — ask for 12mm and it stores 33.84pt, or 11.94mm — so a label cut to the nominal size overruns its own page by a twentieth of a millimetre, and that remainder takes a second, blank page: three labels came out as six. `overflow: hidden` does not help, because it makes a box monolithic for its *contents* while the box itself is still taller than the paper. The 2% is 0.24mm on 12mm stock, about two dots at 203dpi, against the half a percent macOS takes. Scale rather than trim the height: proportions stay intact, so nothing clips and the fitted wordings measured on screen remain valid.
+**The printed roll label is 1% shorter than the stock**, via `grid-auto-rows: calc(var(--label-height) * 0.99)`, and only in the height. Getting there took three wrong answers, so the reasoning is worth keeping:
+
+Safari **scales the page to fill the paper width**. That makes any uniform shrink pointless — it renormalises whatever scale it is given, and a `zoom: 0.98` came back out of the PDF as a 1.8% enlargement printing at full size (the giveaway is in the content stream: a `11.76`-unit text matrix under a `0.7637838` CTM, which is `0.75 × 1.0184`, not the plain `0.75` of a true-size job). `overflow: hidden` is no use either: it makes a box monolithic for its *contents* while the box itself stays taller than the paper.
+
+What survives fit-to-width is the **aspect ratio**. The printed height is `labelHeight × paperWidth / labelWidth`, and macOS rounds a custom paper down unevenly — ask for 40 × 12mm and it stores 39.88 × 11.94mm, proportionally a shade wider than the stock. A label at the nominal 12mm therefore lands a few hundredths of a millimetre over the page, and that remainder takes a second, blank page: three labels printed as five or six.
+
+So trim the height and nothing else — touching the width just gets scaled back. 1% is 0.12mm on 12mm stock, one dot at 203dpi, and leaves about 0.1mm of slack on all three tapes.
 
 Sheet templates are never centred or scaled: their padding is measured from the sheet edge, so either would walk them off the die-cuts.
 
