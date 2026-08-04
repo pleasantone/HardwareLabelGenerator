@@ -126,9 +126,11 @@ Roll templates additionally carry a content budget consumed by `renderLabelMarku
 
 `shortSubtitle` drops the end type from screw subtitles. That is safe because micro density renders the **side** view, which draws the end (a taper for `pointed`, a blunt rect for `flat`), whereas `renderDriveSymbol()` runs only in the `view === 'top'` branch — so the drive is the segment nothing else conveys and must be kept. Headless screws keep both segments, having no other descriptor.
 
-At 12mm tape there are only ~10mm and ~3 short lines of printable height, so `.label--micro` sets `overflow: hidden` as a hard guarantee against spilling onto the adjacent label, and clamps each `.label-meta-line` to one line with an ellipsis.
+`.label--micro` carries no padding: the page is cut to the label, so a millimetre of padding is a millimetre of tape left blank. The type is sized to fill the full 12mm instead, and `overflow: hidden` is the hard guarantee against spilling onto the adjacent label, with each `.label-meta-line` clamped to one line with an ellipsis.
 
-The line budget is measured, not estimated: on 12mm stock `.label-main` is 38px, a title is 12.5px, a subtitle 8.1px and a detail line 8px. That is why enabling `showSubtitle` costs exactly one `maxMetaLines`. If you change what micro labels show, re-measure rather than reasoning about it — `scrollHeight > clientHeight` on `.label-main` is the overflow test.
+The line budget is measured, not estimated: with the full 12mm in play, `.label-main` is 45.4px, a title (9pt) is 13.2px, a subtitle (6pt) 8.8px and a detail line (6pt) 9.6px. Title plus subtitle plus two details is 41.2px against 45.4px available, which is why `showSubtitle` still costs exactly one `maxMetaLines`. If you change what micro labels show, re-measure rather than reasoning about it — `scrollHeight > clientHeight` on `.label-main` is the overflow test.
+
+Bigger type buys legibility with characters: at 9pt the 40mm tape drops to `M5x0.8 Kit` and `Nuts • Flat/Lock Wshr` where 7.5pt fitted the full words. That trade is made by the fallbacks at render time, so the font sizes are the knob — raise them and the wording shortens, lower them and it lengthens, with nothing else to adjust.
 
 Location ranks below every other detail: it is appended to the list *before* `maxMetaLines` is applied, so it fills leftover space and is the first line dropped when the budget runs out.
 

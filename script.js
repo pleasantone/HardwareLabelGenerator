@@ -1085,7 +1085,9 @@ function renderSubtitle(part, { short = false, tier = 'full' } = {}) {
   if (part.type === 'setScrew') {
     const drive = DRIVE_LABELS[part.drive] || 'Drive';
     const pointStyle = END_TYPE_LABELS[part.endType] || 'Cup Point';
-    return `Set Screw • ${drive} • ${pointStyle}`;
+    // Same trade as a screw: the side view draws the point, nothing draws the
+    // drive, so the point is the segment to give up first.
+    return short ? `Set Screw • ${drive}` : `Set Screw • ${drive} • ${pointStyle}`;
   }
 
   if (part.type === 'nut') {
@@ -1110,6 +1112,14 @@ function formatDimension(part, value) {
   return part.standard === 'sae'
     ? `${formatNumber(mmToInches(value), 3)}in`
     : `${formatNumber(value, 2)}mm`;
+}
+
+// Last resort for the narrowest stock: the two diameters as a range, naming the
+// unit once. Everything the label can still say about a ring at 22mm of tape.
+function buildDiameterRange(part, inner, outer) {
+  return part.standard === 'sae'
+    ? `⌀${formatNumber(mmToInches(inner), 3)}–${formatNumber(mmToInches(outer), 3)}in`
+    : `⌀${formatNumber(inner, 2)}–${formatNumber(outer, 2)}mm`;
 }
 
 // `short` drops the last segment — thickness for a washer, width for a bearing —
@@ -1179,13 +1189,21 @@ function buildMetaLines(part, { includeContents = false, narrowStock = false } =
   // imply — how wide the washers are.
   if (part.type === 'washer' || (part.type === 'assortment' && hasWasherContents(part))) {
     detailLine = narrowStock
-      ? [buildWasherDetailLine(part), buildWasherDetailLine(part, { short: true })]
+      ? [
+        buildWasherDetailLine(part),
+        buildWasherDetailLine(part, { short: true }),
+        buildDiameterRange(part, part.innerDiameter, part.outerDiameter)
+      ]
       : buildWasherDetailLine(part);
   }
 
   if (part.type === 'bearing') {
     detailLine = narrowStock
-      ? [buildBearingDetailLine(part), buildBearingDetailLine(part, { short: true })]
+      ? [
+        buildBearingDetailLine(part),
+        buildBearingDetailLine(part, { short: true }),
+        buildDiameterRange(part, part.bearingInnerDiameter, part.bearingOuterDiameter)
+      ]
       : buildBearingDetailLine(part);
   }
 
@@ -1338,8 +1356,13 @@ function renderLabelMarkup(part, layout = {}) {
     ? `<div class="label-visuals${views.length === 1 ? ' label-visuals--single' : ''}" aria-hidden="true">${viewsMarkup}</div>`
     : '';
 
+  // The template's own preference first, then the short form as a last resort —
+  // so wide stock keeps the full wording and only narrow stock gives it up.
   const subtitleWordings = micro
-    ? ASSORTMENT_CONTENT_TIERS.map((tier) => renderSubtitle(part, { short: shortSubtitle, tier }))
+    ? [
+      ...ASSORTMENT_CONTENT_TIERS.map((tier) => renderSubtitle(part, { short: shortSubtitle, tier })),
+      renderSubtitle(part, { short: true })
+    ]
     : [renderSubtitle(part, { short: shortSubtitle })];
   const subtitleMarkup = showSubtitle
     ? renderFittedLine('label-subtitle', subtitleWordings)

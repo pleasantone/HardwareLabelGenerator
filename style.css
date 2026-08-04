@@ -306,10 +306,14 @@ button {
 }
 
 /* Thermal roll stock (e.g. NIIMBOT 12mm tape). Sized in mm/pt rather than rem so
-   the printed result is predictable at 203dpi instead of tracking screen pixels. */
+   the printed result is predictable at 203dpi instead of tracking screen pixels.
+
+   No padding: the page is cut to the label, so every millimetre given away here
+   is a millimetre of tape left blank. The type below is sized to fill the full
+   12mm rather than to sit inside a margin. */
 .label--micro {
   grid-template-columns: 1fr;
-  padding: 0.7mm 1.1mm;
+  padding: 0;
   gap: 0;
   /* Last line of defence: at this size a long title or vendor string would
      otherwise spill onto the neighbouring label. */
@@ -327,7 +331,7 @@ button {
 }
 
 .label--micro .label-title {
-  font-size: 7.5pt;
+  font-size: 9pt;
   line-height: 1.1;
   margin-bottom: 0.4mm;
   display: -webkit-box;
@@ -339,7 +343,7 @@ button {
 }
 
 .label--micro .label-subtitle {
-  font-size: 5pt;
+  font-size: 6pt;
   line-height: 1.1;
   margin-bottom: 0.2mm;
   white-space: nowrap;
@@ -348,7 +352,7 @@ button {
 }
 
 .label--micro .label-meta {
-  font-size: 5pt;
+  font-size: 6pt;
   line-height: 1.2;
 }
 
@@ -374,7 +378,7 @@ button {
 
 .label--micro .label-view-svg svg {
   width: 9mm;
-  height: 10mm;
+  height: 12mm;
 }
 
 /* Two drawings side by side need more width than one, but only up to a point:
@@ -386,7 +390,7 @@ button {
 
 .label--micro.label--assortment .label-view-svg svg {
   width: 11mm;
-  height: 10mm;
+  height: 12mm;
 }
 
 

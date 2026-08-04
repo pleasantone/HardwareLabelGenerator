@@ -163,8 +163,9 @@ Import expects this structure and restores labels + template selection.
   as a sheet, the label is at least centred on it rather than in a corner.
 - Roll labels are shown enlarged in the preview; they print at true size. The
   preview is for reading, not for judging the printed size.
-- 12mm of tape leaves roughly 10mm of printable height — about three short lines.
-  The templates drop detail lines on the narrower stock rather than shrinking text
+- Labels print edge to edge, using the full 12mm of tape height — there is no
+  margin around the content, so the type is as large as the stock allows. The
+  templates drop detail lines on the narrower stock rather than shrinking text
   to an unreadable size. Location is the lowest-priority line: it fills leftover
   space and is the first thing dropped.
 
