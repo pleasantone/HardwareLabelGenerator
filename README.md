@@ -70,6 +70,18 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
 - JSON export and JSON import of label configurations
 - Workspace-style dotted background in preview area (non-print)
 
+## Browser Support
+
+Chrome and Safari are both checked: label wording, the fitted-text fallbacks,
+the roll print geometry, `zoom`, the micro line clamp and session storage all
+measure the same in each. The app is native ES modules with no build step, so it
+needs a browser from roughly 2021 onwards (Safari 15+, Chrome 90+).
+
+Two Safari notes for session storage: it is unavailable in Private Browsing (the
+labels still work, they just will not survive a refresh), and Safari deletes
+script-written storage after seven days without a visit. **Export JSON** is the
+durable copy.
+
 ## Project Structure
 
 - [index.html](index.html) – UI layout and form controls
