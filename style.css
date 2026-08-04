@@ -525,18 +525,21 @@ button {
 
      Sheet templates are left alone even here: their padding is measured from
      the sheet's edge, so centring would walk them off the die-cuts. */
+  /* macOS rounds a custom paper size down — ask for 12mm and it stores 33.84pt,
+     which is 11.94mm — so a label cut to the nominal size overruns its own page
+     by a twentieth of a millimetre and the remainder takes a second, blank one.
+     Three labels printed as six pages.
+
+     `overflow: hidden` does not fix it: that makes a box monolithic for its
+     contents, but the box itself is still taller than the paper. The label has
+     to be smaller than the page, so it is scaled down by 2% — 0.24mm on 12mm
+     stock, about two dots at 203dpi, against the half a percent macOS takes.
+     Scaling rather than trimming the height keeps the proportions, so nothing
+     is clipped and the fitted wordings stay valid. */
   .label-sheet-grid[data-media='roll'] {
+    zoom: 0.98;
     margin-left: auto;
     margin-right: auto;
-  }
-
-  /* macOS rounds a custom paper size down — ask for 12mm and it stores 33.84pt,
-     which is 11.94mm — so a 12mm label overruns its own page by a twentieth of
-     a millimetre and the remainder claims a second, near-blank page. An
-     overflow container is monolithic to the fragmenter: the label stays whole
-     on one page and the sliver is clipped instead of paginated. */
-  .sheet-page[data-media='roll'] {
-    overflow: hidden;
   }
 
   .sheet-notice {
