@@ -140,11 +140,14 @@ Import expects this structure and restores labels + template selection.
 
 ### NIIMBOT roll labels
 
-- Each label prints as its own page sized exactly to the stock (e.g. `75mm × 12mm`),
-  so quantity 5 produces 5 pages, and the label is centred in the page width.
-- Roll labels are shown enlarged in the preview; they print at true size.
-- In the print dialog, set scale to 100% (not "Fit to page") and pick the NIIMBOT
-  printer before printing, so the page size set by the app is used as-is.
+- Each label prints as its own page, so quantity 5 produces 5 pages.
+- Each label is enlarged to about 7.25in wide and centred on the page, keeping
+  its proportions. Print to PDF and let the NIIMBOT software scale it to the
+  tape — a 12mm label left at true size gives it very little to detect.
+- Set **Margins: None** in the print dialog for the largest label; Chrome's
+  margin setting overrides the one the app asks for.
+- Roll labels are shown enlarged in the preview too, at a different scale — the
+  preview is for reading, not for judging the printed size.
 - 12mm of tape leaves roughly 10mm of printable height — about three short lines.
   The templates drop detail lines on the narrower stock rather than shrinking text
   to an unreadable size. Location is the lowest-priority line: it fills leftover

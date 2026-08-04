@@ -501,13 +501,24 @@ button {
     width: 100%;
   }
 
-  /* Roll stock is one label per page. Centring it in the page width is what
-     lets the printer software find the label rather than assuming it starts at
-     the corner. Sheet templates are left alone: their padding is measured from
-     the sheet's edge, so centring would walk them off the die-cuts. */
+  /* Roll stock is one label per page, printed to PDF for the label printer's
+     own software to pick up. Left at true size a 12mm label is a smear in the
+     corner of a sheet, so it is blown up to --roll-print-zoom (set from
+     ROLL_PRINT_WIDTH_IN) and centred on the page in both directions. `zoom`
+     rather than `transform` so the box really is that size and the centring
+     has something to work with.
+
+     Sheet templates get none of this: their padding is measured from the
+     sheet's edge and any scaling walks them off the die-cuts. */
+  .sheet-page[data-media='roll'] {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .label-sheet-grid[data-media='roll'] {
-    margin-left: auto;
-    margin-right: auto;
+    zoom: var(--roll-print-zoom, 1);
   }
 
   .sheet-notice {

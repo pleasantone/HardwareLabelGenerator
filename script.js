@@ -1392,6 +1392,17 @@ function updateSheetNotice(totalCount, capacity, pageCount, template) {
   sheetNotice.textContent = `${template.label} preview • ${labelWord} across ${pageCount} page${pageCount === 1 ? '' : 's'} (${capacity} per page)`;
 }
 
+// Roll labels are printed to PDF and handed to the printer's own software,
+// which finds the label on the page and scales it to the tape. A 12mm-tall
+// label dropped in the corner of a sheet gives it very little to work with, so
+// the label is blown up to this width and centred instead.
+//
+// Conservative on purpose: it has to survive A4 as well as Letter, and Chrome's
+// margin setting wins over `@page { margin: 0 }`, leaving about 7.5in of content
+// width at its default. Printing with margins set to None gives more room, and
+// this is the one number to raise if you want to use it.
+const ROLL_PRINT_WIDTH_IN = 7.25;
+
 // @page cannot be scoped to an element, so the paper size for roll media has to
 // be swapped at the document level whenever the template changes.
 function updatePageSizeRule(template) {
@@ -1402,9 +1413,12 @@ function updatePageSizeRule(template) {
     document.head.appendChild(styleEl);
   }
 
-  styleEl.textContent = template.media === 'roll'
-    ? `@page { size: ${template.widthMm}mm ${template.heightMm}mm; margin: 0; }`
-    : '@page { size: auto; margin: 0; }';
+  // Roll stock takes the paper it is given rather than asking for a page cut to
+  // the label: Chrome hands out whatever the print dialog is set to regardless,
+  // and a page declared 75 x 12mm that arrives as Letter leaves the label
+  // stranded in a corner. The print CSS scales and centres it on whatever turns
+  // up instead.
+  styleEl.textContent = '@page { size: auto; margin: 0; }';
 }
 
 function updatePreview() {
@@ -1418,6 +1432,11 @@ function updatePreview() {
     maxMetaLines: template.maxMetaLines ?? Infinity,
     titleLines: template.titleLines ?? 1
   };
+  // Sheet stock has to print at true size or it misses the die-cuts; only roll
+  // stock is scaled up to the page.
+  const rollPrintZoom = template.media === 'roll'
+    ? Number((ROLL_PRINT_WIDTH_IN / template.labelWidth).toFixed(3))
+    : 1;
   const padTop = template.padTop ?? 0.15;
   const padRight = template.padRight ?? 0.15;
   const padBottom = template.padBottom ?? 0.15;
@@ -1440,11 +1459,11 @@ function updatePreview() {
     const labelsMarkup = labelsForPage.map((label) => renderLabelMarkup(label, layout)).join('');
 
     return `
-      <div class="sheet-page">
+      <div class="sheet-page" data-media="${template.media || 'sheet'}">
         <div class="sheet-page-title no-print">Page ${pageIndex + 1} of ${pageCount}</div>
         <div
           class="label-sheet-grid"
-          style="--cols:${template.columns}; --label-width:${template.labelWidth}in; --label-height:${template.labelHeight}in; --col-gap:${template.colGap}in; --row-gap:${template.rowGap}in; --pad-top:${padTop}in; --pad-right:${padRight}in; --pad-bottom:${padBottom}in; --pad-left:${padLeft}in;"
+          style="--cols:${template.columns}; --label-width:${template.labelWidth}in; --label-height:${template.labelHeight}in; --col-gap:${template.colGap}in; --row-gap:${template.rowGap}in; --pad-top:${padTop}in; --pad-right:${padRight}in; --pad-bottom:${padBottom}in; --pad-left:${padLeft}in; --roll-print-zoom:${rollPrintZoom};"
           data-template="${template.id}"
           data-media="${template.media || 'sheet'}"
         >
