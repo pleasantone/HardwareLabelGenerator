@@ -377,14 +377,15 @@ button {
   height: 10mm;
 }
 
-/* Two drawings side by side need roughly twice the width of one before either
-   is recognisable at 12mm. */
+/* Two drawings side by side need more width than one, but only up to a point:
+   past 11mm the contents line loses a name to the ellipsis, which costs more
+   than the drawings gain. 5.5mm per item is ~44 dots at 203dpi. */
 .label--micro.label--assortment.label--with-visuals {
-  grid-template-columns: 1fr 15mm;
+  grid-template-columns: 1fr 11mm;
 }
 
 .label--micro.label--assortment .label-view-svg svg {
-  width: 15mm;
+  width: 11mm;
   height: 10mm;
 }
 

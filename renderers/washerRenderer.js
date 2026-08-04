@@ -14,6 +14,7 @@ export function renderWasherSVG(part, view = 'top') {
   const thickness = Number(part.washerThickness) || sizeData.washer.thickness;
 
   const isLock = part.washerStyle === 'lock';
+  const isToothed = part.washerStyle === 'toothed';
 
   const centerX = 60;
   const centerY = 80;
@@ -33,11 +34,32 @@ export function renderWasherSVG(part, view = 'top') {
       ? `<rect x="${bodyX + bodyWidth * 0.82}" y="${bodyY - bodyHeight * 0.85}" width="${bodyWidth * 0.18}" height="${bodyHeight}" fill="#fff" stroke="#111" stroke-width="2" />`
       : '';
 
+    const sideLabel = (isLock && 'Split lock washer') || (isToothed && 'Toothed lock washer') || 'Washer';
+
     return `
-      <svg viewBox="0 0 120 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${isLock ? 'Split lock washer' : 'Washer'} side view">
+      <svg viewBox="0 0 120 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sideLabel} side view">
         <rect x="${bodyX}" y="${bodyY}" width="${bodyWidth}" height="${bodyHeight}" fill="#fff" stroke="#111" stroke-width="2" />
         ${stepMarkup}
         <line x1="${centerX - slotWidth / 2}" y1="${centerY}" x2="${centerX + slotWidth / 2}" y2="${centerY}" stroke="#111" stroke-width="2" />
+      </svg>
+    `;
+  }
+
+  // External-tooth washer: the teeth are what distinguishes it, so they are cut
+  // deep enough to survive being scaled down into an assortment icon.
+  if (isToothed) {
+    const toothCount = 12;
+    const rootRadius = outerRadius * 0.78;
+    const points = Array.from({ length: toothCount * 2 }, (_, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI) / toothCount;
+      const radius = index % 2 === 0 ? outerRadius : rootRadius;
+      return `${(centerX + radius * Math.cos(angle)).toFixed(2)},${(centerY + radius * Math.sin(angle)).toFixed(2)}`;
+    }).join(' ');
+
+    return `
+      <svg viewBox="0 0 120 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Toothed lock washer top view">
+        <polygon points="${points}" fill="#fff" stroke="#111" stroke-width="2" stroke-linejoin="round" />
+        <circle cx="${centerX}" cy="${centerY}" r="${innerRadius}" fill="#fff" stroke="#111" stroke-width="2" />
       </svg>
     `;
   }

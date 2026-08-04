@@ -51,7 +51,9 @@ Renderers draw one part, so `withRepresentativeLength()` swaps in the *median* l
 
 An assortment's detail line follows its contents: a box holding washers gets the washer ID/OD/thickness line (`buildWasherDetailLine()`, shared with the washer type) instead of the thread spec, because the title already carries the thread size and the washer OD is the one dimension it cannot imply. A box without washers keeps the thread line.
 
-`renderTitle(part, { short })` and `renderSubtitle(part, { short })` take the short forms for micro stock: an enumerated list collapses to a range (the title is line-clamped, so a list would be cut mid-number) and `Assortment` becomes `Kit`. When the layout has no subtitle at all, `buildMetaLines(part, { includeContents })` moves the contents into the details — on a mixed box that line is the whole point of the label.
+`renderTitle`, `renderSubtitle` and `buildMetaLines` all take a `short` flag, set for micro stock, where every line is clamped with an ellipsis and the wording therefore has to fit rather than be trimmed by CSS. It selects: a range instead of an enumerated length list, `Kit` instead of `Assortment`, `Star Washer` instead of `Toothed Lock Washer`, `ASSORTMENT_ITEM_SHORT_LABELS` instead of the full names, and a washer line without its thickness. When the layout has no subtitle at all, `buildMetaLines(part, { includeContents })` moves the contents into the details — on a mixed box that line is the whole point of the label.
+
+Contents get a second tier on top of the short names: two or more washer kinds collapse into one `Flat/Lock Wshr` segment, since repeating the noun is what overruns the line. Measured on 12mm stock, where a contents line has 96px (40mm) or 73px (22mm): full names hold two items, short names three, merged washers four on 40mm and three on 22mm. Re-measure with `scrollWidth > clientWidth` before assuming a new wording fits.
 
 ### Renderer conventions
 

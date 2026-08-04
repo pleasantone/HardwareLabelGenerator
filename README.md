@@ -33,6 +33,7 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
 - Washer controls with ID/OD/thickness and style options:
   - Flat
   - Split lock
+  - Toothed lock (star)
 - Assortment labels for bins that hold more than one part:
   - Several lengths of one thread size, titled as a range (`M5x0.8 × 30–50mm`)
     or a list (`M5x0.8 × 30/35/40/45/50mm`)
@@ -149,7 +150,13 @@ What each 12mm template prints, highest priority first:
 Titles omit the "Metric"/"SAE" word throughout the app, since the size designation
 already implies it (`M6x1.0` vs `1/4-20`).
 
-Assortment labels shorten to fit 12mm stock: the title becomes `M5x0.8 Kit`, an
-enumerated length list collapses to its range, and the contents move into the
-detail lines on the stock too narrow for a subtitle. Only the first two items are
-drawn there; the contents line still names them all.
+Assortment labels shorten to fit 12mm stock rather than letting the line end in an
+ellipsis: the title becomes `M5x0.8 Kit`, an enumerated length list collapses to
+its range, item names abbreviate (`Flat Wshr`), two or more washer kinds merge
+(`Flat/Lock Wshr`), the washer line drops its thickness, and the contents move
+into the detail lines on the stock too narrow for a subtitle. Only the first two
+items are drawn there; the contents line still names them all.
+
+How much fits on one line, measured: `T12*40` holds four items, `T12*22` three.
+Past that the line still ellipsizes — the drawings and the size in the title
+carry the rest.

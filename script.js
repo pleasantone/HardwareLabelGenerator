@@ -193,7 +193,15 @@ const NUT_STYLE_LABELS = {
 
 const WASHER_STYLE_LABELS = {
   flat: 'Flat Washer',
-  lock: 'Split Lock Washer'
+  lock: 'Split Lock Washer',
+  toothed: 'Toothed Lock Washer'
+};
+
+// Shop names, used where the full one would not fit.
+const WASHER_STYLE_SHORT_LABELS = {
+  flat: 'Flat Washer',
+  lock: 'Lock Washer',
+  toothed: 'Star Washer'
 };
 
 // Contents of a mixed-hardware box, in the order they are listed on the label.
@@ -203,7 +211,28 @@ const ASSORTMENT_ITEM_LABELS = {
   nut: 'Nuts',
   lockNut: 'Lock Nuts',
   flatWasher: 'Flat Washers',
-  lockWasher: 'Lock Washers'
+  lockWasher: 'Lock Washers',
+  toothedWasher: 'Toothed Washers'
+};
+
+// One line of 12mm stock fits roughly 24 characters, which three full names
+// overrun. These are what the contents collapse to rather than losing the last
+// item to an ellipsis.
+const ASSORTMENT_ITEM_SHORT_LABELS = {
+  screw: 'Screws',
+  nut: 'Nuts',
+  lockNut: 'Locknuts',
+  flatWasher: 'Flat Wshr',
+  lockWasher: 'Lock Wshr',
+  toothedWasher: 'Star Wshr'
+};
+
+// Second tier: repeating the noun for every washer kind is what overruns the
+// line, so two or more of them collapse to one segment — `Flat/Lock Wshr`.
+const ASSORTMENT_WASHER_ADJECTIVES = {
+  flatWasher: 'Flat',
+  lockWasher: 'Lock',
+  toothedWasher: 'Star'
 };
 
 const BEARING_PRESETS = {
@@ -854,7 +883,8 @@ function renderTitle(part, { short = false } = {}) {
   }
 
   if (part.type === 'washer') {
-    return `${part.size} ${WASHER_STYLE_LABELS[normalizeWasherStyle(part.washerStyle)]}`;
+    const labels = short ? WASHER_STYLE_SHORT_LABELS : WASHER_STYLE_LABELS;
+    return `${part.size} ${labels[normalizeWasherStyle(part.washerStyle)]}`;
   }
 
   if (part.type === 'bearing') {
@@ -874,25 +904,43 @@ function renderTitle(part, { short = false } = {}) {
   return `${part.size} ${part.type.charAt(0).toUpperCase()}${part.type.slice(1)}`;
 }
 
+// The screw entry carries the length range so a mixed box still says which
+// screws are in it; the other items are fully described by the size in the title.
+// `short` swaps in the abbreviated nouns, which is what keeps three items on one
+// line of 12mm stock instead of losing the last one to an ellipsis.
+function renderAssortmentContents(part, { short = false } = {}) {
+  const spec = parseLengthSpec(part);
+  const labels = short ? ASSORTMENT_ITEM_SHORT_LABELS : ASSORTMENT_ITEM_LABELS;
+  const items = part.assortmentItems || [];
+  const washers = short ? items.filter((item) => ASSORTMENT_WASHER_ADJECTIVES[item]) : [];
+  const mergeWashers = washers.length > 1;
+
+  const contents = [];
+
+  for (const item of items) {
+    if (mergeWashers && ASSORTMENT_WASHER_ADJECTIVES[item]) {
+      // Emitted once, where the first washer kind would have gone.
+      if (item === washers[0]) {
+        contents.push(`${washers.map((key) => ASSORTMENT_WASHER_ADJECTIVES[key]).join('/')} Wshr`);
+      }
+      continue;
+    }
+
+    const label = labels[item] || item;
+    contents.push(item === 'screw' && spec
+      ? `${label} ${formatLengthSpec(part, spec, { forceRange: true })}`
+      : label);
+  }
+
+  return contents;
+}
+
 // `short` trims the subtitle for narrow stock. It drops the end type, which the
 // side-view drawing already shows, and keeps the drive, which it does not —
 // renderDriveSymbol() only runs for the top view.
-// The screw entry carries the length range so a mixed box still says which
-// screws are in it; the other items are fully described by the size in the title.
-function renderAssortmentContents(part) {
-  const spec = parseLengthSpec(part);
-
-  return (part.assortmentItems || []).map((item) => {
-    const label = ASSORTMENT_ITEM_LABELS[item] || item;
-    return item === 'screw' && spec
-      ? `${label} ${formatLengthSpec(part, spec, { forceRange: true })}`
-      : label;
-  });
-}
-
 function renderSubtitle(part, { short = false } = {}) {
   if (part.type === 'assortment') {
-    const contents = renderAssortmentContents(part);
+    const contents = renderAssortmentContents(part, { short });
     return contents.length ? contents.join(' • ') : 'Assorted Hardware';
   }
 
@@ -931,22 +979,39 @@ function renderSubtitle(part, { short = false } = {}) {
     return 'Ball Bearing • Open';
   }
 
-  return WASHER_STYLE_LABELS[normalizeWasherStyle(part.washerStyle)];
+  const washerLabels = short ? WASHER_STYLE_SHORT_LABELS : WASHER_STYLE_LABELS;
+  return washerLabels[normalizeWasherStyle(part.washerStyle)];
 }
 
-function buildWasherDetailLine(part) {
-  return part.standard === 'sae'
-    ? `${formatNumber(mmToInches(part.innerDiameter), 3)}in ID • ${formatNumber(mmToInches(part.outerDiameter), 3)}in OD • ${formatNumber(mmToInches(part.washerThickness), 3)}in thick`
-    : `${formatNumber(part.innerDiameter, 2)}mm ID • ${formatNumber(part.outerDiameter, 2)}mm OD • ${formatNumber(part.washerThickness, 2)}mm thick`;
+// `short` drops the thickness, the least useful of the three when picking a
+// washer out of a bin, because all three do not fit on 12mm stock.
+function buildWasherDetailLine(part, { short = false } = {}) {
+  const isSae = part.standard === 'sae';
+  const dimension = (value) => (isSae
+    ? `${formatNumber(mmToInches(value), 3)}in`
+    : `${formatNumber(value, 2)}mm`);
+
+  const segments = [
+    `${dimension(part.innerDiameter)} ID`,
+    `${dimension(part.outerDiameter)} OD`
+  ];
+
+  if (!short) {
+    segments.push(`${dimension(part.washerThickness)} thick`);
+  }
+
+  return segments.join(' • ');
 }
 
 function hasWasherContents(part) {
-  return (part.assortmentItems || []).some((item) => item === 'flatWasher' || item === 'lockWasher');
+  return (part.assortmentItems || []).some((item) => item.endsWith('Washer'));
 }
 
 // `includeContents` recovers what the subtitle would have said on stock too
 // narrow to show one — for a mixed box that is the whole point of the label.
-function buildMetaLines(part, { includeContents = false } = {}) {
+// `short` is that same stock: every line there is clamped to one line with an
+// ellipsis, so the wording has to fit rather than be trimmed by CSS.
+function buildMetaLines(part, { includeContents = false, short = false } = {}) {
   let detailLine = `${formatNumber(part.pitch, 3)}mm pitch • ⌀${part.diameter.toFixed(1)}mm`;
 
   if (part.standard === 'sae') {
@@ -961,14 +1026,14 @@ function buildMetaLines(part, { includeContents = false } = {}) {
   }
 
   if (part.type === 'washer') {
-    detailLine = buildWasherDetailLine(part);
+    detailLine = buildWasherDetailLine(part, { short });
   }
 
   // The thread size is already in an assortment's title, so a box holding
   // washers spends its detail line on the one dimension the title cannot
   // imply — how wide the washers are.
   if (part.type === 'assortment' && hasWasherContents(part)) {
-    detailLine = buildWasherDetailLine(part);
+    detailLine = buildWasherDetailLine(part, { short });
   }
 
   if (part.type === 'bearing') {
@@ -981,8 +1046,10 @@ function buildMetaLines(part, { includeContents = false } = {}) {
   const metaLines = [];
 
   // What is in the box outranks the thread spec, so contents lead the details.
+  // This line only ever appears on stock with no room for a subtitle, which is
+  // also too narrow for the full names.
   if (includeContents && part.type === 'assortment') {
-    const contents = renderAssortmentContents(part);
+    const contents = renderAssortmentContents(part, { short: true });
     if (contents.length) {
       metaLines.push(contents.join(' • '));
     }
@@ -1045,7 +1112,7 @@ function renderLabelMarkup(part, layout = {}) {
 
   // A micro title is clamped to one or two lines, so it takes the short forms.
   const title = escapeHtml(renderTitle(part, { short: micro }));
-  const detailLines = buildMetaLines(part, { includeContents: !showSubtitle });
+  const detailLines = buildMetaLines(part, { includeContents: !showSubtitle, short: micro });
 
   // Narrow stock has no room for a separate location block, so fold it inline
   // as the lowest-priority line.

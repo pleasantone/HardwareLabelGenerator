@@ -10,7 +10,8 @@ const ITEM_RENDERERS = {
   nut: (part) => renderNutSVG({ ...part, nutStyle: 'hex', isLockNut: false }, 'top'),
   lockNut: (part) => renderNutSVG({ ...part, nutStyle: 'lock', isLockNut: true }, 'top'),
   flatWasher: (part) => renderWasherSVG({ ...part, washerStyle: 'flat' }, 'top'),
-  lockWasher: (part) => renderWasherSVG({ ...part, washerStyle: 'lock' }, 'top')
+  lockWasher: (part) => renderWasherSVG({ ...part, washerStyle: 'lock' }, 'top'),
+  toothedWasher: (part) => renderWasherSVG({ ...part, washerStyle: 'toothed' }, 'top')
 };
 
 const ITEM_WIDTH = 120;
