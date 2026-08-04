@@ -150,13 +150,18 @@ What each 12mm template prints, highest priority first:
 Titles omit the "Metric"/"SAE" word throughout the app, since the size designation
 already implies it (`M6x1.0` vs `1/4-20`).
 
-Assortment labels shorten to fit 12mm stock rather than letting the line end in an
-ellipsis: the title becomes `M5x0.8 Kit`, an enumerated length list collapses to
-its range, item names abbreviate (`Flat Wshr`), two or more washer kinds merge
-(`Flat/Lock Wshr`), the washer line drops its thickness, and the contents move
-into the detail lines on the stock too narrow for a subtitle. Only the first two
-items are drawn there; the contents line still names them all.
+Nothing is abbreviated unless it has to be. Each line is laid out at its full
+wording and only steps down to a shorter one while it would otherwise end in an
+ellipsis, so the same box prints differently on each stock:
 
-How much fits on one line, measured: `T12*40` holds four items, `T12*22` three.
-Past that the line still ellipsizes — the drawings and the size in the title
-carry the rest.
+| | T12*75 | T12*40 | T12*22 |
+| --- | --- | --- | --- |
+| Title | `M5x0.8 Assortment` | `M5x0.8 Assortment` | `M5x0.8 Assortment` |
+| Contents | `Nuts • Flat Washers • Lock Washers` | `Nuts • Flat Wshr • Lock Wshr` | `Nuts • Flat/Lock Wshr` |
+| Washer size | `5.3mm ID • 11mm OD • 1.25mm thick` | `5.3mm ID • 11mm OD` | `5.3mm ID • 11mm OD` |
+
+Longer sizes and fuller boxes step down sooner — an `M12x1.75` mixed box titles
+itself `M12x1.75 Kit` on the 40mm tape but stays `M12x1.75 Assortment` on the
+75mm. The same applies outside assortments: a length list stays a list where it
+fits and becomes a range where it does not, and nut, washer and bearing dimension
+lines drop their last figure only when the line would overflow.

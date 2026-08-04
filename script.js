@@ -227,13 +227,17 @@ const ASSORTMENT_ITEM_SHORT_LABELS = {
   toothedWasher: 'Star Wshr'
 };
 
-// Second tier: repeating the noun for every washer kind is what overruns the
-// line, so two or more of them collapse to one segment — `Flat/Lock Wshr`.
+// Repeating the noun for every washer kind is what overruns the line, so the
+// last tier collapses two or more of them to one segment — `Flat/Lock Wshr`.
 const ASSORTMENT_WASHER_ADJECTIVES = {
   flatWasher: 'Flat',
   lockWasher: 'Lock',
   toothedWasher: 'Star'
 };
+
+// Wordings for the contents, widest first. Nothing picks one up front: the
+// label falls through them at render time and keeps the first that fits.
+const ASSORTMENT_CONTENT_TIERS = ['full', 'short', 'merged'];
 
 const BEARING_PRESETS = {
   '608': { innerDiameter: 8, outerDiameter: 22, width: 7, seal: 'shielded' },
@@ -906,13 +910,13 @@ function renderTitle(part, { short = false } = {}) {
 
 // The screw entry carries the length range so a mixed box still says which
 // screws are in it; the other items are fully described by the size in the title.
-// `short` swaps in the abbreviated nouns, which is what keeps three items on one
-// line of 12mm stock instead of losing the last one to an ellipsis.
-function renderAssortmentContents(part, { short = false } = {}) {
+// The tiers are the wordings to fall back through when the line is too narrow
+// for the names in full — see ASSORTMENT_CONTENT_TIERS.
+function renderAssortmentContents(part, { tier = 'full' } = {}) {
   const spec = parseLengthSpec(part);
-  const labels = short ? ASSORTMENT_ITEM_SHORT_LABELS : ASSORTMENT_ITEM_LABELS;
+  const labels = tier === 'full' ? ASSORTMENT_ITEM_LABELS : ASSORTMENT_ITEM_SHORT_LABELS;
   const items = part.assortmentItems || [];
-  const washers = short ? items.filter((item) => ASSORTMENT_WASHER_ADJECTIVES[item]) : [];
+  const washers = tier === 'merged' ? items.filter((item) => ASSORTMENT_WASHER_ADJECTIVES[item]) : [];
   const mergeWashers = washers.length > 1;
 
   const contents = [];
@@ -938,9 +942,9 @@ function renderAssortmentContents(part, { short = false } = {}) {
 // `short` trims the subtitle for narrow stock. It drops the end type, which the
 // side-view drawing already shows, and keeps the drive, which it does not —
 // renderDriveSymbol() only runs for the top view.
-function renderSubtitle(part, { short = false } = {}) {
+function renderSubtitle(part, { short = false, tier = 'full' } = {}) {
   if (part.type === 'assortment') {
-    const contents = renderAssortmentContents(part, { short });
+    const contents = renderAssortmentContents(part, { tier });
     return contents.length ? contents.join(' • ') : 'Assorted Hardware';
   }
 
@@ -983,21 +987,46 @@ function renderSubtitle(part, { short = false } = {}) {
   return washerLabels[normalizeWasherStyle(part.washerStyle)];
 }
 
-// `short` drops the thickness, the least useful of the three when picking a
-// washer out of a bin, because all three do not fit on 12mm stock.
-function buildWasherDetailLine(part, { short = false } = {}) {
-  const isSae = part.standard === 'sae';
-  const dimension = (value) => (isSae
+function formatDimension(part, value) {
+  return part.standard === 'sae'
     ? `${formatNumber(mmToInches(value), 3)}in`
-    : `${formatNumber(value, 2)}mm`);
+    : `${formatNumber(value, 2)}mm`;
+}
 
+// `short` drops the last segment — thickness for a washer, width for a bearing —
+// which is the least useful of the three when picking one out of a bin, and the
+// one that will not fit beside the other two on 12mm stock.
+function buildWasherDetailLine(part, { short = false } = {}) {
   const segments = [
-    `${dimension(part.innerDiameter)} ID`,
-    `${dimension(part.outerDiameter)} OD`
+    `${formatDimension(part, part.innerDiameter)} ID`,
+    `${formatDimension(part, part.outerDiameter)} OD`
   ];
 
   if (!short) {
-    segments.push(`${dimension(part.washerThickness)} thick`);
+    segments.push(`${formatDimension(part, part.washerThickness)} thick`);
+  }
+
+  return segments.join(' • ');
+}
+
+function buildNutDetailLine(part, { short = false } = {}) {
+  const segments = [`${formatDimension(part, part.widthAcrossFlats)} A/F`];
+
+  if (!short) {
+    segments.push(`${formatDimension(part, part.nutThickness)} thick`);
+  }
+
+  return segments.join(' • ');
+}
+
+function buildBearingDetailLine(part, { short = false } = {}) {
+  const segments = [
+    `${formatDimension(part, part.bearingInnerDiameter)} ID`,
+    `${formatDimension(part, part.bearingOuterDiameter)} OD`
+  ];
+
+  if (!short) {
+    segments.push(`${formatDimension(part, part.bearingWidth)} W`);
   }
 
   return segments.join(' • ');
@@ -1009,9 +1038,11 @@ function hasWasherContents(part) {
 
 // `includeContents` recovers what the subtitle would have said on stock too
 // narrow to show one — for a mixed box that is the whole point of the label.
-// `short` is that same stock: every line there is clamped to one line with an
-// ellipsis, so the wording has to fit rather than be trimmed by CSS.
-function buildMetaLines(part, { includeContents = false, short = false } = {}) {
+// `narrowStock` does not shorten anything by itself: it offers the narrower
+// wordings as fallbacks, and applyTextFallbacks() only takes one if the line
+// it is on actually overflows. A line may therefore be a string or, where
+// there is something to fall back to, an array of wordings widest first.
+function buildMetaLines(part, { includeContents = false, narrowStock = false } = {}) {
   let detailLine = `${formatNumber(part.pitch, 3)}mm pitch • ⌀${part.diameter.toFixed(1)}mm`;
 
   if (part.standard === 'sae') {
@@ -1019,39 +1050,36 @@ function buildMetaLines(part, { includeContents = false, short = false } = {}) {
   }
 
   if (part.type === 'nut') {
-    detailLine = `${formatNumber(part.widthAcrossFlats, 2)}mm A/F • ${formatNumber(part.nutThickness, 2)}mm thick`;
-    if (part.standard === 'sae') {
-      detailLine = `${formatNumber(mmToInches(part.widthAcrossFlats), 3)}in A/F • ${formatNumber(mmToInches(part.nutThickness), 3)}in thick`;
-    }
-  }
-
-  if (part.type === 'washer') {
-    detailLine = buildWasherDetailLine(part, { short });
+    detailLine = narrowStock
+      ? [buildNutDetailLine(part), buildNutDetailLine(part, { short: true })]
+      : buildNutDetailLine(part);
   }
 
   // The thread size is already in an assortment's title, so a box holding
   // washers spends its detail line on the one dimension the title cannot
   // imply — how wide the washers are.
-  if (part.type === 'assortment' && hasWasherContents(part)) {
-    detailLine = buildWasherDetailLine(part, { short });
+  if (part.type === 'washer' || (part.type === 'assortment' && hasWasherContents(part))) {
+    detailLine = narrowStock
+      ? [buildWasherDetailLine(part), buildWasherDetailLine(part, { short: true })]
+      : buildWasherDetailLine(part);
   }
 
   if (part.type === 'bearing') {
-    detailLine = `${formatNumber(part.bearingInnerDiameter, 2)}mm ID • ${formatNumber(part.bearingOuterDiameter, 2)}mm OD • ${formatNumber(part.bearingWidth, 2)}mm W`;
-    if (part.standard === 'sae') {
-      detailLine = `${formatNumber(mmToInches(part.bearingInnerDiameter), 3)}in ID • ${formatNumber(mmToInches(part.bearingOuterDiameter), 3)}in OD • ${formatNumber(mmToInches(part.bearingWidth), 3)}in W`;
-    }
+    detailLine = narrowStock
+      ? [buildBearingDetailLine(part), buildBearingDetailLine(part, { short: true })]
+      : buildBearingDetailLine(part);
   }
 
   const metaLines = [];
 
   // What is in the box outranks the thread spec, so contents lead the details.
-  // This line only ever appears on stock with no room for a subtitle, which is
-  // also too narrow for the full names.
   if (includeContents && part.type === 'assortment') {
-    const contents = renderAssortmentContents(part, { short: true });
-    if (contents.length) {
-      metaLines.push(contents.join(' • '));
+    const wordings = ASSORTMENT_CONTENT_TIERS
+      .map((tier) => renderAssortmentContents(part, { tier }).join(' • '))
+      .filter(Boolean);
+
+    if (wordings.length) {
+      metaLines.push(narrowStock ? wordings : wordings[0]);
     }
   }
 
@@ -1059,8 +1087,10 @@ function buildMetaLines(part, { includeContents = false, short = false } = {}) {
   // lengths are actually stocked, so the set is spelled out here instead.
   const lengthSpec = part.type === 'assortment' ? null : parseLengthSpec(part);
   if (lengthSpec && lengthSpec.enumerated && part.lengthStyle !== 'list') {
-    const values = lengthSpec.values.map((value) => formatNumber(value, 2)).join('/');
-    metaLines.push(`Lengths: ${values}${part.lengthUnit}`);
+    const values = `${lengthSpec.values.map((value) => formatNumber(value, 2)).join('/')}${part.lengthUnit}`;
+    // The title is already a length range, so the word is the part this line can
+    // afford to lose.
+    metaLines.push(narrowStock ? [`Lengths: ${values}`, values] : `Lengths: ${values}`);
   }
 
   metaLines.push(detailLine);
@@ -1095,6 +1125,40 @@ function buildMetaLines(part, { includeContents = false, short = false } = {}) {
   return metaLines;
 }
 
+function uniqueCandidates(candidates) {
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+// Emits the widest wording, plus the narrower ones for applyTextFallbacks() to
+// fall back through if it does not fit.
+function renderFittedLine(className, candidates) {
+  const wordings = uniqueCandidates(candidates);
+  const fallbacks = wordings.length > 1
+    ? ` data-fallbacks="${escapeHtml(JSON.stringify(wordings))}"`
+    : '';
+
+  return `<div class="${className}"${fallbacks}>${escapeHtml(wordings[0] || '')}</div>`;
+}
+
+// Wording that fits beats wording that is short, so nothing is abbreviated up
+// front: each line starts at its widest and steps down only while it overflows.
+// This has to run after layout — at 5pt in a proportional font the rendered
+// width is the only honest measure, and it moves with the template's drawing
+// column. Lines clamped by height (a title) and by width (a detail) both report
+// through the same test.
+function applyTextFallbacks(root) {
+  root.querySelectorAll('[data-fallbacks]').forEach((element) => {
+    const wordings = JSON.parse(element.dataset.fallbacks);
+
+    for (const wording of wordings) {
+      element.textContent = wording;
+      if (element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight) {
+        break;
+      }
+    }
+  });
+}
+
 // `maxMetaLines` caps how many detail lines survive. Location ranks below every
 // other detail, so it is appended before the cap is applied and is therefore the
 // first thing dropped when the budget runs out.
@@ -1110,9 +1174,20 @@ function renderLabelMarkup(part, layout = {}) {
   const compact = density === 'compact';
   const micro = density === 'micro';
 
-  // A micro title is clamped to one or two lines, so it takes the short forms.
-  const title = escapeHtml(renderTitle(part, { short: micro }));
-  const detailLines = buildMetaLines(part, { includeContents: !showSubtitle, short: micro });
+  // Micro stock clamps every line, so each one is offered its short form as a
+  // fallback. Which stock it is decides nothing here — only whether the line
+  // overflows once rendered, which applyTextFallbacks() settles.
+  const titleWordings = [renderTitle(part)];
+  if (micro) {
+    titleWordings.push(renderTitle(part, { short: true }));
+    // Last resort for a long size: the subtitle is naming the style anyway, so
+    // the title can give it up rather than end in an ellipsis.
+    if (showSubtitle && part.type === 'washer') {
+      titleWordings.push(`${part.size} Washer`);
+    }
+  }
+  const titleMarkup = renderFittedLine('label-title', titleWordings);
+  const detailLines = buildMetaLines(part, { includeContents: !showSubtitle, narrowStock: micro });
 
   // Narrow stock has no room for a separate location block, so fold it inline
   // as the lowest-priority line.
@@ -1126,7 +1201,7 @@ function renderLabelMarkup(part, layout = {}) {
 
   // One element per line so micro stock can clamp each to a single line.
   const meta = metaLines
-    .map((line) => `<div class="label-meta-line">${escapeHtml(line)}</div>`)
+    .map((line) => renderFittedLine('label-meta-line', Array.isArray(line) ? line : [line]))
     .join('');
 
   // A single drawing is all that fits on micro stock; wider media gets both views.
@@ -1144,8 +1219,11 @@ function renderLabelMarkup(part, layout = {}) {
     ? `<div class="label-visuals${views.length === 1 ? ' label-visuals--single' : ''}" aria-hidden="true">${viewsMarkup}</div>`
     : '';
 
+  const subtitleWordings = micro
+    ? ASSORTMENT_CONTENT_TIERS.map((tier) => renderSubtitle(part, { short: shortSubtitle, tier }))
+    : [renderSubtitle(part, { short: shortSubtitle })];
   const subtitleMarkup = showSubtitle
-    ? `<div class="label-subtitle">${escapeHtml(renderSubtitle(part, { short: shortSubtitle }))}</div>`
+    ? renderFittedLine('label-subtitle', subtitleWordings)
     : '';
   const locationMarkup = !compact && !micro && part.location
     ? `<div class="label-location">${escapeHtml(part.location)}</div>`
@@ -1173,7 +1251,7 @@ function renderLabelMarkup(part, layout = {}) {
     <section class="${classNames.join(' ')}"${styleAttr}>
       <div class="label-main">
         <div>
-          <div class="label-title">${title}</div>
+          ${titleMarkup}
           ${subtitleMarkup}
           <div class="label-meta">${meta}</div>
         </div>
@@ -1258,6 +1336,7 @@ function updatePreview() {
   }).join('');
 
   sheetPreview.innerHTML = pageMarkup;
+  applyTextFallbacks(sheetPreview);
 
   updatePageSizeRule(template);
   refreshLabelPicker();

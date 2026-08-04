@@ -51,9 +51,24 @@ Renderers draw one part, so `withRepresentativeLength()` swaps in the *median* l
 
 An assortment's detail line follows its contents: a box holding washers gets the washer ID/OD/thickness line (`buildWasherDetailLine()`, shared with the washer type) instead of the thread spec, because the title already carries the thread size and the washer OD is the one dimension it cannot imply. A box without washers keeps the thread line.
 
-`renderTitle`, `renderSubtitle` and `buildMetaLines` all take a `short` flag, set for micro stock, where every line is clamped with an ellipsis and the wording therefore has to fit rather than be trimmed by CSS. It selects: a range instead of an enumerated length list, `Kit` instead of `Assortment`, `Star Washer` instead of `Toothed Lock Washer`, `ASSORTMENT_ITEM_SHORT_LABELS` instead of the full names, and a washer line without its thickness. When the layout has no subtitle at all, `buildMetaLines(part, { includeContents })` moves the contents into the details — on a mixed box that line is the whole point of the label.
+When the layout has no subtitle at all, `buildMetaLines(part, { includeContents })` moves the contents into the details — on a mixed box that line is the whole point of the label.
 
-Contents get a second tier on top of the short names: two or more washer kinds collapse into one `Flat/Lock Wshr` segment, since repeating the noun is what overruns the line. Measured on 12mm stock, where a contents line has 96px (40mm) or 73px (22mm): full names hold two items, short names three, merged washers four on 40mm and three on 22mm. Re-measure with `scrollWidth > clientWidth` before assuming a new wording fits.
+### Wording is chosen by measurement, not by template
+
+Nothing is abbreviated up front. A line is emitted at its widest wording with the narrower ones in a `data-fallbacks` attribute, and `applyTextFallbacks()` — run against the preview right after `innerHTML` — steps down only while the element still overflows. So the 75mm tape prints `Nuts • Flat Washers • Lock Washers` while the 22mm prints `Nuts • Flat/Lock Wshr`, from the same code, with no per-template wording config.
+
+The fallbacks, widest first:
+
+| line | wordings |
+| --- | --- |
+| title | full, `short: true` (range not list, `Kit`, `Star Washer`), and for a washer beside a subtitle, the style dropped entirely |
+| contents | `ASSORTMENT_CONTENT_TIERS` — full names, `ASSORTMENT_ITEM_SHORT_LABELS`, then two or more washer kinds merged into one `Flat/Lock Wshr` segment |
+| nut / washer / bearing dimensions | all three, then the last one dropped (thickness, thickness, width) |
+| lengths | `Lengths: 30/35/40mm`, then the word dropped |
+
+`renderFittedLine()` builds the markup; passing one wording just emits it. Candidates are only offered on micro stock, so sheet labels carry no attribute at all. The overflow test is `scrollWidth > clientWidth || scrollHeight > clientHeight`, which covers both a detail clamped by width and a title clamped by `--title-lines`. Adding a wording means adding it to the array — do not reason about whether it fits, the fallback measures.
+
+One line still has nowhere to go: a bearing's ID and OD overrun the 22mm tape's 73px on their own.
 
 ### Renderer conventions
 
