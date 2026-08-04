@@ -106,11 +106,11 @@ Print output is the same DOM: `@media print` hides `.no-print`, drops borders, a
 
 Roll templates are thermal stock (NIIMBOT 12mm tape) built by `createRollTemplate()`, which takes **mm** and is the source of truth for the page size; the inch fields are derived. They are always `columns: 1, rows: 1` with zero padding, so the existing capacity math naturally yields one label per page.
 
-Roll labels are printed to PDF and handed to the label printer's own software, which finds the label on the page and scales it to the tape. Asking for a page cut to the label does not survive that trip — Chrome hands out whatever the print dialog's paper is set to, and a page declared `75mm × 12mm` that arrives as Letter leaves the label stranded in a corner, too small for the software to make much of. So the page is left as `size: auto` and the print CSS scales the label instead: `--roll-print-zoom` (from `ROLL_PRINT_WIDTH_IN`, 7.25in) blows the grid up with `zoom`, and `.sheet-page[data-media='roll']` centres it in `100vh` both ways. `zoom` rather than `transform` so the box really is that size and the centring has something to work with.
+Because `@page` cannot be scoped to an element, `updatePageSizeRule()` swaps a document-level `<style id="pageSizeRule">` whenever the template changes — `@page { size: 40mm 12mm }` for roll, `size: auto` for sheet. Forgetting to call it leaves the previous template's paper size active.
 
-7.25in is deliberately short of the paper: it has to survive A4 as well as Letter, and Chrome's own margin setting overrides `@page { margin: 0 }`, leaving roughly 7.5in of content width at its default. Sheet templates are never scaled — their padding is measured from the sheet edge and any zoom walks them off the die-cuts.
+Roll output is a page cut to the label at true size, one label per page, and it is deliberately **not** scaled up to fill a sheet. That matches what the label printer's own software emits: a 14-label T12*40 job from it is 14 pages of 40.05 × 12.02mm. A previous attempt to blow the label up to a sheet width was wrong on both counts — it did not match the reference, and it broke printing straight to the tape.
 
-`updatePageSizeRule()` still swaps a document-level `<style id="pageSizeRule">`, since `@page` cannot be scoped to an element.
+The print dialog can still override the page size, which looks exactly like the app getting it wrong: the label appears small on a Letter page. `.sheet-page[data-media='roll']` centres in `100vh` for that case only — normally the label *is* the page and the centring does nothing, but when the dialog hands out a sheet the label lands in the middle at true size rather than in a corner. Sheet templates are never centred or scaled: their padding is measured from the sheet edge, so either would walk them off the die-cuts.
 
 ### Three density tiers
 
