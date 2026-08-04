@@ -46,6 +46,8 @@ Type-specific field groups are declared in HTML as `.config-group[data-types="sc
 
 Machine is the assumption the rest of the app already makes, so it is the only type that adds nothing: no subtitle segment, and `renderSizeName()` keeps the size as it is. Every other type is named in the subtitle and drops the thread designation from the title, because `M5x0.8` and `1/4-20` name a machine thread that a wood screw does not cut — those titles read `5mm × 30mm` and `1/4 × 1.25in`.
 
+Gauge sizes (`#2`–`#14`) are how those screws are actually sold, so they live in the inch dataset — a gauge is a way of naming a diameter, not a way of measuring one, and making it a third `standard` would have meant unpicking every `standard === 'sae'` in the file. Every lookup resolves them; only `populateSizeOptions()` filters, offering them just where `offersGaugeSizes()` says they belong. Because the offered list depends on the hardware and screw type, `applyPartToForm()` hands its context in explicitly rather than reading fields it has not written yet, and a size that drops out from under a type change falls back to the default.
+
 In the renderer, `COARSE_THREAD_TYPES` draw a sawtooth silhouette at the pitch instead of hatching a straight shank, `PARTIAL_THREAD_TYPES` leave the top of the shank smooth, and both get a longer gimlet point. `THREAD_DEPTH` is cut deeper than the real root ratios: at label size the shank is about ten units wide, and anything shallower reads as a wavy line rather than a thread. Check any change to it by rasterising, not by reasoning — the failure mode is subtle at 4x and invisible in the numbers.
 
 ### A label can describe more than one part

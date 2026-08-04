@@ -1,4 +1,9 @@
-import { getDefaultSizeForStandard, getFastenerData } from './fastener-data.js';
+import {
+  defaultGaugeSize,
+  gaugeSizeNames,
+  getDefaultSizeForStandard,
+  getFastenerData
+} from './fastener-data.js';
 import { renderScrewSVG } from './renderers/screwRenderer.js';
 import { renderSetScrewSVG } from './renderers/setScrewRenderer.js';
 import { renderNutSVG } from './renderers/nutRenderer.js';
@@ -532,25 +537,38 @@ function getCheckedValues(name) {
     .map((input) => input.value);
 }
 
-function getDataForCurrentStandard() {
-  const standard = getValue('standard') || 'metric';
-  return getFastenerData(standard);
-}
-
 function getSizeData(standard, size) {
   const dataSet = getFastenerData(standard);
   const fallback = getDefaultSizeForStandard(standard);
   return dataSet[size] || dataSet[fallback];
 }
 
-function populateSizeOptions() {
-  const standard = getValue('standard') || 'metric';
-  const dataSet = getDataForCurrentStandard();
-  const current = sizeSelect.value;
-  const defaultSize = getDefaultSizeForStandard(standard);
-  const selected = dataSet[current] ? current : defaultSize;
+// Gauge is how the screws that cut their own hole are sold; a machine screw of
+// the same diameter is named for its thread instead (#8 versus 8-32), so the two
+// lists are kept apart. Callers that are mid-way through populating the form
+// pass the context in rather than letting this read half-updated fields.
+function offersGaugeSizes({ standard, type, screwType }) {
+  return standard === 'sae'
+    && (type === 'screw' || type === 'assortment')
+    && normalizeScrewType(screwType) !== 'machine';
+}
 
-  sizeSelect.innerHTML = Object.keys(dataSet)
+function populateSizeOptions(context = {}) {
+  const standard = context.standard || getValue('standard') || 'metric';
+  const type = context.type || getValue('type') || 'screw';
+  const screwType = context.screwType || getValue('screwType');
+  const dataSet = getFastenerData(standard);
+
+  const withGauge = offersGaugeSizes({ standard, type, screwType });
+  const sizeKeys = Object.keys(dataSet)
+    .filter((sizeKey) => (gaugeSizeNames.includes(sizeKey) ? withGauge : true));
+
+  const current = context.size || sizeSelect.value;
+  const defaultSize = withGauge ? defaultGaugeSize : getDefaultSizeForStandard(standard);
+  // A size can drop out of the list when the screw type changes under it.
+  const selected = sizeKeys.includes(current) ? current : defaultSize;
+
+  sizeSelect.innerHTML = sizeKeys
     .map((sizeKey) => `<option value="${sizeKey}">${sizeKey}</option>`)
     .join('');
 
@@ -657,7 +675,14 @@ function applyPartToForm(part) {
   const normalizedPart = normalizePart(part);
 
   standardSelect.value = part.standard || 'metric';
-  populateSizeOptions();
+  // The size list depends on the hardware and screw type, neither of which is on
+  // the form yet, so they are handed over rather than read back.
+  populateSizeOptions({
+    standard: normalizedPart.standard || 'metric',
+    type: normalizedPart.type || 'screw',
+    screwType: normalizedPart.screwType,
+    size: normalizedPart.size
+  });
   updateStandardLabels();
 
   const setField = (id, value) => {
@@ -1551,6 +1576,12 @@ form.addEventListener('change', (event) => {
 
   if (event.target.id === 'nutStyle') {
     syncTypeSpecificDefaults();
+  }
+
+  // Both of these change which sizes are on offer: gauge is only sold for the
+  // screw types that cut their own hole.
+  if (event.target.id === 'screwType' || event.target.id === 'type') {
+    populateSizeOptions();
   }
 
   if (event.target.id === 'screwType') {

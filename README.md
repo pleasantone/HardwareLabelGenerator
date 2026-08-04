@@ -20,6 +20,7 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
   - Screw type (machine, sheet metal / self-tapping, wood, drywall,
     thread-forming for plastic, lag), each seeding its own thread pitch, head
     and tip, and each drawn with the thread it actually cuts
+  - Gauge sizing (#2–#14) for the types sold that way, titled `#8 × 1.25in`
   - Head type
   - Drive type (Phillips, JIS, hex, Torx, security Torx, square/Robertson,
     slotted)
@@ -90,6 +91,14 @@ Includes general and thread-specific metric options such as:
 - M8x1.0, M8x1.25
 - M10x1.0, M10x1.25, M10x1.5
 - M12x1.25, M12x1.5, M12x1.75
+
+### Screw gauge
+Offered for the screw types sold that way — wood, sheet metal, drywall,
+thread-forming and lag — alongside the fractional sizes:
+- #2, #4, #6, #8, #10, #12, #14
+
+Machine screws keep the thread designation instead (`8-32`, not `#8`), since
+that is how they are sold.
 
 ### Inch / SAE
 - 6-40, 6-32

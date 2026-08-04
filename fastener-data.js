@@ -81,8 +81,33 @@ const saeThreadSeries = [
   ['1/2-20', 12.7, 20]
 ];
 
+// Screw gauge, how wood and sheet-metal screws are actually sold. The major
+// diameter is 0.060 + 0.013 x gauge inches, which is where these come from.
+// The declared thread is the machine (UNC) thread for that gauge: it is the
+// baseline SCREW_TYPE_DEFAULTS scales from, so a #8 wood screw lands near 14 TPI
+// against a real 15. Coarse threads are approximated to within a turn or so,
+// like every other dimension here.
+const gaugeThreadSeries = [
+  ['#2', 2.184, 56],
+  ['#4', 2.845, 40],
+  ['#6', 3.505, 32],
+  ['#8', 4.166, 32],
+  ['#10', 4.826, 24],
+  ['#12', 5.486, 24],
+  ['#14', 6.147, 20]
+];
+
+export const gaugeSizeNames = gaugeThreadSeries.map(([size]) => size);
+
+export const defaultGaugeSize = '#8';
+
+// Gauge sizes are part of the inch dataset rather than a standard of their own —
+// they are a way of naming a diameter, not a way of measuring one. Every lookup
+// therefore resolves them; only the size dropdown filters them down to the screw
+// types actually sold that way.
 export const saeFastenerData = Object.fromEntries(
-  saeThreadSeries.map(([size, diameter, tpi]) => [size, createFastenerSize(diameter, 25.4 / tpi, tpi)])
+  [...gaugeThreadSeries, ...saeThreadSeries]
+    .map(([size, diameter, tpi]) => [size, createFastenerSize(diameter, 25.4 / tpi, tpi)])
 );
 
 export const fastenerDataByStandard = {
