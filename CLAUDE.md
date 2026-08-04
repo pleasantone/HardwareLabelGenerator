@@ -94,6 +94,12 @@ All renderers emit a raw SVG string with a fixed `viewBox="0 0 120 160"`, drawin
 
 Print output is the same DOM: `@media print` hides `.no-print`, drops borders, and forces page breaks per `.sheet-page`. Anything screen-only must carry the `no-print` class.
 
+`.app` and `.preview-area` are a fixed-height scroll pane on screen, and the print block has to reset **both** `height` and `overflow` on them. In paged media `100vh` is one page and `overflow` clips to it, so leaving either in place throws away every page after the first — most visibly on roll stock, where a page is a single label. `.sheet-preview` also drops to `display: block` in print, or the 18px flex gap that separates pages on screen gets laid out between page boxes.
+
+### Session persistence
+
+`saveSession()` writes `buildConfigPayload()` — the same shape `exportCurrentConfig()` downloads — to `localStorage` at the end of `updatePreview()`, which every mutation path already ends with. `restoreSession()` runs it back through `importConfigFromPayload()` on boot, so a payload written by an older deploy is migrated by `normalizePart()` exactly as an old download would be. Both are wrapped: storage can be unavailable or full, and a payload that cannot be read is removed rather than left to fail every start.
+
 ### Two media types
 
 `template.media` is `'sheet'` (default) or `'roll'`.

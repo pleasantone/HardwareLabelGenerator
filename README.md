@@ -65,6 +65,8 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
   - T12*40-160 (12 × 40mm)
   - T12*75-95 (12 × 75mm)
 - Print-ready output
+- Work in progress is kept in browser local storage, so a refresh or a closed
+  tab does not lose the labels; **Reset** starts over
 - JSON export and JSON import of label configurations
 - Workspace-style dotted background in preview area (non-print)
 
@@ -139,7 +141,7 @@ Import expects this structure and restores labels + template selection.
 ### NIIMBOT roll labels
 
 - Each label prints as its own page sized exactly to the stock (e.g. `75mm × 12mm`),
-  so quantity 5 produces 5 pages.
+  so quantity 5 produces 5 pages, and the label is centred in the page width.
 - Roll labels are shown enlarged in the preview; they print at true size.
 - In the print dialog, set scale to 100% (not "Fit to page") and pick the NIIMBOT
   printer before printing, so the page size set by the app is used as-is.

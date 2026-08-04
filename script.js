@@ -1460,6 +1460,9 @@ function updatePreview() {
   updatePageSizeRule(template);
   refreshLabelPicker();
   updateSheetNotice(totalLabelCount, capacity, pageCount, template);
+
+  // Every mutation path ends here, so this is the one place a save has to go.
+  saveSession();
 }
 
 function downloadTextFile(filename, content, mimeType) {
@@ -1474,10 +1477,9 @@ function downloadTextFile(filename, content, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-function exportCurrentConfig() {
-  storeActiveLabel();
+function buildConfigPayload() {
   const sheet = getSheetSettings();
-  const payload = {
+  return {
     activeLabelIndex,
     labels: labelConfigs,
     sheet: {
@@ -1488,6 +1490,11 @@ function exportCurrentConfig() {
     },
     exportedAt: new Date().toISOString()
   };
+}
+
+function exportCurrentConfig() {
+  storeActiveLabel();
+  const payload = buildConfigPayload();
 
   const part = labelConfigs[activeLabelIndex] || getCurrentPart();
   const safeName = `${part.standard}-${part.type}-${part.size}-label-config`.replace(/[^a-z0-9\-_.]/gi, '_').toLowerCase();
@@ -1530,6 +1537,50 @@ async function importCurrentConfig(file) {
   const text = await file.text();
   const payload = JSON.parse(text);
   importConfigFromPayload(payload);
+}
+
+// The work in progress is kept in the same shape as an exported file, so a
+// restore is an import and `normalizePart()` migrates a payload written by an
+// older deploy exactly as it migrates an old download. Every write is wrapped
+// because storage can be unavailable or full (private windows, quota); losing
+// persistence is worth a shrug, losing the app is not.
+const SESSION_STORAGE_KEY = 'hardwareLabelGenerator.session.v1';
+
+function saveSession() {
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(buildConfigPayload()));
+  } catch (error) {
+    // Nothing to do: the labels are still on screen, they just will not survive
+    // a refresh.
+  }
+}
+
+function restoreSession() {
+  let stored = null;
+
+  try {
+    stored = localStorage.getItem(SESSION_STORAGE_KEY);
+  } catch (error) {
+    return false;
+  }
+
+  if (!stored) {
+    return false;
+  }
+
+  try {
+    importConfigFromPayload(JSON.parse(stored));
+    return true;
+  } catch (error) {
+    // A stored payload that cannot be read is worse than none: drop it rather
+    // than fail to start every time from here on.
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (removeError) {
+      // Already unreachable; the fresh start below is what matters.
+    }
+    return false;
+  }
 }
 
 form.addEventListener('input', (event) => {
@@ -1667,6 +1718,10 @@ populateSizeOptions();
 updateStandardLabels();
 syncTypeSpecificDefaults();
 updateFormOptions();
-labelConfigs = [getCurrentPart()];
-activeLabelIndex = 0;
-updatePreview();
+
+// A restored session brings its own labels, template and form state with it.
+if (!restoreSession()) {
+  labelConfigs = [getCurrentPart()];
+  activeLabelIndex = 0;
+  updatePreview();
+}

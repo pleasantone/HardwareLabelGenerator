@@ -472,18 +472,42 @@ button {
     display: none !important;
   }
 
+  /* On screen these two are a fixed-height scroll pane. In paged media 100vh is
+     a single page and `overflow` clips to it, so without resetting both, every
+     page after the first is thrown away — on 12mm roll stock, where a page is
+     one label, that means only the first label ever prints. */
   .app {
     display: block;
+    height: auto;
+    overflow: visible;
   }
 
   .preview-area {
     padding: 0;
     display: block;
+    height: auto;
+    overflow: visible;
   }
 
+  /* Block rather than flex: the 18px gap that separates pages on screen would
+     otherwise be laid out between page boxes. */
   .sheet-preview {
     padding: 0;
+    display: block;
     overflow: visible;
+  }
+
+  .sheet-page {
+    width: 100%;
+  }
+
+  /* Roll stock is one label per page. Centring it in the page width is what
+     lets the printer software find the label rather than assuming it starts at
+     the corner. Sheet templates are left alone: their padding is measured from
+     the sheet's edge, so centring would walk them off the die-cuts. */
+  .label-sheet-grid[data-media='roll'] {
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .sheet-notice {
