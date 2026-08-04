@@ -4,6 +4,7 @@ import { renderSetScrewSVG } from './renderers/setScrewRenderer.js';
 import { renderNutSVG } from './renderers/nutRenderer.js';
 import { renderWasherSVG } from './renderers/washerRenderer.js';
 import { renderBearingSVG } from './renderers/bearingRenderer.js';
+import { renderAssortmentSVG } from './renderers/assortmentRenderer.js';
 
 // Roll media (thermal label printers) is one label per page: the page itself is
 // cut to the label, so there is no sheet margin and capacity is always 1.
@@ -154,6 +155,7 @@ let activeLabelIndex = 0;
 const HEAD_LABELS = {
   pan: 'Pan Head',
   socketCap: 'Socket Cap',
+  button: 'Button Head',
   fillister: 'Fillister Head',
   flat: 'Flat Head',
   flat82: '82° Flat Head',
@@ -187,6 +189,21 @@ const NUT_STYLE_LABELS = {
   lock: 'Hex Lock Nut',
   wing: 'Wing Nut',
   keps: 'Keps Nut'
+};
+
+const WASHER_STYLE_LABELS = {
+  flat: 'Flat Washer',
+  lock: 'Split Lock Washer'
+};
+
+// Contents of a mixed-hardware box, in the order they are listed on the label.
+// The same keys are drawn by ITEM_RENDERERS in renderers/assortmentRenderer.js.
+const ASSORTMENT_ITEM_LABELS = {
+  screw: 'Screws',
+  nut: 'Nuts',
+  lockNut: 'Lock Nuts',
+  flatWasher: 'Flat Washers',
+  lockWasher: 'Lock Washers'
 };
 
 const BEARING_PRESETS = {
@@ -253,20 +270,86 @@ function normalizeNutStyle(style, isLockNut = false) {
   return isLockNut ? 'lock' : 'hex';
 }
 
+function normalizeWasherStyle(style) {
+  return WASHER_STYLE_LABELS[style] ? style : 'flat';
+}
+
+// Order is fixed by ASSORTMENT_ITEM_LABELS rather than by click order, so the
+// same box always reads the same way.
+function normalizeAssortmentItems(items) {
+  const requested = new Set(Array.isArray(items) ? items : []);
+  return Object.keys(ASSORTMENT_ITEM_LABELS).filter((key) => requested.has(key));
+}
+
 function normalizePart(part) {
   if (!part || typeof part !== 'object') {
     return part;
   }
 
-  if (part.type !== 'nut') {
+  const normalized = {
+    ...part,
+    lengths: typeof part.lengths === 'string' ? part.lengths : '',
+    lengthStyle: part.lengthStyle === 'list' ? 'list' : 'range',
+    washerStyle: normalizeWasherStyle(part.washerStyle),
+    assortmentItems: normalizeAssortmentItems(part.assortmentItems)
+  };
+
+  if (part.type === 'nut') {
+    normalized.nutStyle = normalizeNutStyle(part.nutStyle, Boolean(part.isLockNut));
+    normalized.isLockNut = normalized.nutStyle === 'lock';
+  }
+
+  return normalized;
+}
+
+// A box of one thread size in several lengths. Accepts an explicit set
+// ("30, 35, 40") or the shorthand range ("30-50"); the shorthand carries no
+// list of what is actually inside, so `enumerated` records which was given.
+function parseLengthSpec(part) {
+  if (!part || (part.type !== 'screw' && part.type !== 'setScrew' && part.type !== 'assortment')) {
+    return null;
+  }
+
+  const raw = String(part.lengths || '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  const values = [...new Set((raw.match(/\d+(?:\.\d+)?/g) || []).map(Number).filter((value) => value > 0))]
+    .sort((a, b) => a - b);
+
+  if (values.length < 2) {
+    return null;
+  }
+
+  return {
+    values,
+    min: values[0],
+    max: values[values.length - 1],
+    enumerated: !/^\d+(?:\.\d+)?\s*[-–—]\s*\d+(?:\.\d+)?$/.test(raw)
+  };
+}
+
+function formatLengthSpec(part, spec, { forceRange = false } = {}) {
+  const useRange = forceRange || !spec.enumerated || part.lengthStyle !== 'list';
+  return useRange
+    ? `${formatNumber(spec.min, 2)}–${formatNumber(spec.max, 2)}${part.lengthUnit}`
+    : `${spec.values.map((value) => formatNumber(value, 2)).join('/')}${part.lengthUnit}`;
+}
+
+// Renderers draw one screw, so an assortment is drawn at its middle length —
+// the shortest would understate the box and the longest would overstate it.
+function withRepresentativeLength(part) {
+  const spec = parseLengthSpec(part);
+  if (!spec) {
     return part;
   }
 
-  const nutStyle = normalizeNutStyle(part.nutStyle, Boolean(part.isLockNut));
+  const median = spec.values[Math.floor(spec.values.length / 2)];
   return {
     ...part,
-    nutStyle,
-    isLockNut: nutStyle === 'lock'
+    length: part.standard === 'sae' ? inchesToMm(median) : median,
+    lengthDisplay: median
   };
 }
 
@@ -299,6 +382,22 @@ function getNutStyleDefaults(baseNut, nutStyle) {
         thickness: roundDimension(thickness)
       };
   }
+}
+
+// Bearings have no table of their own, so a custom one is derived from the
+// washer for the same thread size. Rounded here rather than at the point of
+// display, so the derived value cannot reach the form field — or the label — as
+// floating-point noise like 23.759999999999998.
+function getBearingDefaults(sizeData) {
+  const washerInner = Number(sizeData.washer.innerDiameter) || 4;
+  const washerOuter = Number(sizeData.washer.outerDiameter) || 9;
+  const roundDimension = (value) => Number(value.toFixed(2));
+
+  return {
+    innerDiameter: roundDimension(Math.max(2, washerInner)),
+    outerDiameter: roundDimension(Math.max(4, washerOuter * 1.8)),
+    width: roundDimension(Math.max(2, (washerOuter - washerInner) * 0.45))
+  };
 }
 
 function syncDriveWithHeadSelection() {
@@ -347,6 +446,11 @@ function getValue(id) {
 
 function getChecked(id) {
   return Boolean(document.getElementById(id)?.checked);
+}
+
+function getCheckedValues(name) {
+  return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+    .map((input) => input.value);
 }
 
 function getDataForCurrentStandard() {
@@ -406,11 +510,7 @@ function getCurrentPart() {
   const nutStyle = normalizeNutStyle(getValue('nutStyle'));
   const nutStyleDefaults = getNutStyleDefaults(nutDefaults, nutStyle);
   const washerDefaults = sizeData.washer;
-  const bearingDefaults = {
-    innerDiameter: Math.max(2, Number(sizeData.washer.innerDiameter) || 4),
-    outerDiameter: Math.max(4, (Number(sizeData.washer.outerDiameter) || 9) * 1.8),
-    width: Math.max(2, ((Number(sizeData.washer.outerDiameter) || 9) - (Number(sizeData.washer.innerDiameter) || 4)) * 0.45)
-  };
+  const bearingDefaults = getBearingDefaults(sizeData);
   const isSetScrew = type === 'setScrew';
   const threadInput = Number(getValue('pitch'))
     || (standard === 'sae' ? (sizeData.threadPerInch || Math.round(25.4 / sizeData.coarsePitch)) : sizeData.coarsePitch);
@@ -440,6 +540,8 @@ function getCurrentPart() {
     length: isSetScrew ? setScrewLengthMm : lengthMm,
     lengthDisplay: isSetScrew ? setScrewLengthInput : lengthInput,
     lengthUnit: standard === 'sae' ? 'in' : 'mm',
+    lengths: getValue('lengths'),
+    lengthStyle: getValue('lengthStyle') || 'range',
     pitch,
     threadValue: isSetScrew ? setScrewThreadInput : threadInput,
     head,
@@ -459,6 +561,8 @@ function getCurrentPart() {
     innerDiameter: Number(getValue('washerID')) || washerDefaults.innerDiameter,
     outerDiameter: Number(getValue('washerOD')) || washerDefaults.outerDiameter,
     washerThickness: Number(getValue('washerThickness')) || washerDefaults.thickness,
+    washerStyle: normalizeWasherStyle(getValue('washerStyle')),
+    assortmentItems: getCheckedValues('assortmentItem'),
     bearingInnerDiameter: Number(getValue('bearingID')) || bearingDefaults.innerDiameter,
     bearingOuterDiameter: Number(getValue('bearingOD')) || bearingDefaults.outerDiameter,
     bearingWidth: Number(getValue('bearingWidth')) || bearingDefaults.width,
@@ -492,6 +596,8 @@ function applyPartToForm(part) {
   setField('setScrewDrive', normalizedPart.drive || 'hex');
   setField('endType', normalizedPart.endType || 'pointed');
   setField('setScrewPoint', normalizedPart.endType || 'cup');
+  setField('lengths', normalizedPart.lengths || '');
+  setField('lengthStyle', normalizedPart.lengthStyle || 'range');
   setField('material', normalizedPart.material || '');
   setField('finish', normalizedPart.finish || '');
   setField('location', normalizedPart.location || '');
@@ -508,6 +614,13 @@ function applyPartToForm(part) {
   setField('washerID', normalizedPart.innerDiameter);
   setField('washerOD', normalizedPart.outerDiameter);
   setField('washerThickness', normalizedPart.washerThickness);
+  setField('washerStyle', normalizedPart.washerStyle || 'flat');
+
+  const selectedItems = new Set(normalizedPart.assortmentItems || []);
+  document.querySelectorAll('input[name="assortmentItem"]').forEach((input) => {
+    input.checked = selectedItems.has(input.value);
+  });
+
   setField('bearingID', normalizedPart.bearingInnerDiameter);
   setField('bearingOD', normalizedPart.bearingOuterDiameter);
   setField('bearingWidth', normalizedPart.bearingWidth);
@@ -620,14 +733,15 @@ function syncTypeSpecificDefaults({ resetLength = false } = {}) {
     return;
   }
 
+  const bearingDefaults = getBearingDefaults(sizeData);
   if (bearingIdInput) {
-    bearingIdInput.value = Math.max(2, Number(sizeData.washer.innerDiameter) || 4);
+    bearingIdInput.value = bearingDefaults.innerDiameter;
   }
   if (bearingOdInput) {
-    bearingOdInput.value = Math.max(4, (Number(sizeData.washer.outerDiameter) || 9) * 1.8);
+    bearingOdInput.value = bearingDefaults.outerDiameter;
   }
   if (bearingWidthInput) {
-    bearingWidthInput.value = Math.max(2, ((Number(sizeData.washer.outerDiameter) || 9) - (Number(sizeData.washer.innerDiameter) || 4)) * 0.45);
+    bearingWidthInput.value = bearingDefaults.width;
   }
 }
 
@@ -679,7 +793,9 @@ function updateFormOptions() {
   }
 }
 
-function renderFastenerSVG(part) {
+function renderFastenerSVG(basePart, { maxAssortmentItems = 3 } = {}) {
+  const part = withRepresentativeLength(basePart);
+
   switch (part.type) {
     case 'screw':
       return renderScrewSVG(part, 'side');
@@ -691,12 +807,16 @@ function renderFastenerSVG(part) {
       return renderWasherSVG(part, 'top');
     case 'bearing':
       return renderBearingSVG(part, 'top');
+    case 'assortment':
+      return renderAssortmentSVG(part, { maxItems: maxAssortmentItems });
     default:
       return renderScrewSVG(part, 'side');
   }
 }
 
-function renderFastenerViews(part) {
+function renderFastenerViews(basePart, { maxAssortmentItems = 3 } = {}) {
+  const part = withRepresentativeLength(basePart);
+
   switch (part.type) {
     case 'screw':
       return part.isHeadless
@@ -710,14 +830,31 @@ function renderFastenerViews(part) {
       return [renderWasherSVG(part, 'top')];
     case 'bearing':
       return [renderBearingSVG(part, 'top')];
+    // One strip already carries every item, so a second view would repeat it.
+    case 'assortment':
+      return [renderAssortmentSVG(part, { maxItems: maxAssortmentItems })];
     default:
       return [renderScrewSVG(part, 'side'), renderScrewSVG(part, 'top')];
   }
 }
 
-function renderTitle(part) {
+// `short` is for stock that clamps the title to a line or two: an enumerated
+// length list collapses back to its endpoints rather than being cut off
+// mid-number, and the longest words give way to ones that fit.
+function renderTitle(part, { short = false } = {}) {
   if (part.type === 'screw' || part.type === 'setScrew') {
-    return `${part.size} × ${formatNumber(part.lengthDisplay, 2)}${part.lengthUnit}`;
+    const spec = parseLengthSpec(part);
+    return spec
+      ? `${part.size} × ${formatLengthSpec(part, spec, { forceRange: short })}`
+      : `${part.size} × ${formatNumber(part.lengthDisplay, 2)}${part.lengthUnit}`;
+  }
+
+  if (part.type === 'assortment') {
+    return short ? `${part.size} Kit` : `${part.size} Assortment`;
+  }
+
+  if (part.type === 'washer') {
+    return `${part.size} ${WASHER_STYLE_LABELS[normalizeWasherStyle(part.washerStyle)]}`;
   }
 
   if (part.type === 'bearing') {
@@ -740,7 +877,25 @@ function renderTitle(part) {
 // `short` trims the subtitle for narrow stock. It drops the end type, which the
 // side-view drawing already shows, and keeps the drive, which it does not —
 // renderDriveSymbol() only runs for the top view.
+// The screw entry carries the length range so a mixed box still says which
+// screws are in it; the other items are fully described by the size in the title.
+function renderAssortmentContents(part) {
+  const spec = parseLengthSpec(part);
+
+  return (part.assortmentItems || []).map((item) => {
+    const label = ASSORTMENT_ITEM_LABELS[item] || item;
+    return item === 'screw' && spec
+      ? `${label} ${formatLengthSpec(part, spec, { forceRange: true })}`
+      : label;
+  });
+}
+
 function renderSubtitle(part, { short = false } = {}) {
+  if (part.type === 'assortment') {
+    const contents = renderAssortmentContents(part);
+    return contents.length ? contents.join(' • ') : 'Assorted Hardware';
+  }
+
   if (part.type === 'screw') {
     const head = part.isHeadless ? 'Headless' : (HEAD_LABELS[part.head] || 'Head');
     const drive = DRIVE_LABELS[part.drive] || 'Drive';
@@ -776,10 +931,22 @@ function renderSubtitle(part, { short = false } = {}) {
     return 'Ball Bearing • Open';
   }
 
-  return 'Flat Washer';
+  return WASHER_STYLE_LABELS[normalizeWasherStyle(part.washerStyle)];
 }
 
-function buildMetaLines(part) {
+function buildWasherDetailLine(part) {
+  return part.standard === 'sae'
+    ? `${formatNumber(mmToInches(part.innerDiameter), 3)}in ID • ${formatNumber(mmToInches(part.outerDiameter), 3)}in OD • ${formatNumber(mmToInches(part.washerThickness), 3)}in thick`
+    : `${formatNumber(part.innerDiameter, 2)}mm ID • ${formatNumber(part.outerDiameter, 2)}mm OD • ${formatNumber(part.washerThickness, 2)}mm thick`;
+}
+
+function hasWasherContents(part) {
+  return (part.assortmentItems || []).some((item) => item === 'flatWasher' || item === 'lockWasher');
+}
+
+// `includeContents` recovers what the subtitle would have said on stock too
+// narrow to show one — for a mixed box that is the whole point of the label.
+function buildMetaLines(part, { includeContents = false } = {}) {
   let detailLine = `${formatNumber(part.pitch, 3)}mm pitch • ⌀${part.diameter.toFixed(1)}mm`;
 
   if (part.standard === 'sae') {
@@ -794,20 +961,42 @@ function buildMetaLines(part) {
   }
 
   if (part.type === 'washer') {
-    detailLine = `${part.innerDiameter}mm ID • ${part.outerDiameter}mm OD • ${part.washerThickness}mm thick`;
-    if (part.standard === 'sae') {
-      detailLine = `${formatNumber(mmToInches(part.innerDiameter), 3)}in ID • ${formatNumber(mmToInches(part.outerDiameter), 3)}in OD • ${formatNumber(mmToInches(part.washerThickness), 3)}in thick`;
-    }
+    detailLine = buildWasherDetailLine(part);
+  }
+
+  // The thread size is already in an assortment's title, so a box holding
+  // washers spends its detail line on the one dimension the title cannot
+  // imply — how wide the washers are.
+  if (part.type === 'assortment' && hasWasherContents(part)) {
+    detailLine = buildWasherDetailLine(part);
   }
 
   if (part.type === 'bearing') {
-    detailLine = `${part.bearingInnerDiameter}mm ID • ${part.bearingOuterDiameter}mm OD • ${part.bearingWidth}mm W`;
+    detailLine = `${formatNumber(part.bearingInnerDiameter, 2)}mm ID • ${formatNumber(part.bearingOuterDiameter, 2)}mm OD • ${formatNumber(part.bearingWidth, 2)}mm W`;
     if (part.standard === 'sae') {
       detailLine = `${formatNumber(mmToInches(part.bearingInnerDiameter), 3)}in ID • ${formatNumber(mmToInches(part.bearingOuterDiameter), 3)}in OD • ${formatNumber(mmToInches(part.bearingWidth), 3)}in W`;
     }
   }
 
-  const metaLines = [detailLine];
+  const metaLines = [];
+
+  // What is in the box outranks the thread spec, so contents lead the details.
+  if (includeContents && part.type === 'assortment') {
+    const contents = renderAssortmentContents(part);
+    if (contents.length) {
+      metaLines.push(contents.join(' • '));
+    }
+  }
+
+  // A range title says how long the shortest and longest are but not which
+  // lengths are actually stocked, so the set is spelled out here instead.
+  const lengthSpec = part.type === 'assortment' ? null : parseLengthSpec(part);
+  if (lengthSpec && lengthSpec.enumerated && part.lengthStyle !== 'list') {
+    const values = lengthSpec.values.map((value) => formatNumber(value, 2)).join('/');
+    metaLines.push(`Lengths: ${values}${part.lengthUnit}`);
+  }
+
+  metaLines.push(detailLine);
 
   if (part.type === 'nut') {
     const nutStyle = normalizeNutStyle(part.nutStyle, Boolean(part.isLockNut));
@@ -854,8 +1043,9 @@ function renderLabelMarkup(part, layout = {}) {
   const compact = density === 'compact';
   const micro = density === 'micro';
 
-  const title = escapeHtml(renderTitle(part));
-  const detailLines = buildMetaLines(part);
+  // A micro title is clamped to one or two lines, so it takes the short forms.
+  const title = escapeHtml(renderTitle(part, { short: micro }));
+  const detailLines = buildMetaLines(part, { includeContents: !showSubtitle });
 
   // Narrow stock has no room for a separate location block, so fold it inline
   // as the lowest-priority line.
@@ -873,9 +1063,13 @@ function renderLabelMarkup(part, layout = {}) {
     .join('');
 
   // A single drawing is all that fits on micro stock; wider media gets both views.
-  const views = showVisuals
-    ? (micro ? [renderFastenerSVG(part)] : renderFastenerViews(part))
-    : [];
+  // Assortment items share one view slot between them, so the smaller the label
+  // the fewer of them stay legible — the contents text carries the rest.
+  const viewOptions = { maxAssortmentItems: density === 'normal' ? 3 : 2 };
+  const views = (showVisuals
+    ? (micro ? [renderFastenerSVG(part, viewOptions)] : renderFastenerViews(part, viewOptions))
+    : []
+  ).filter(Boolean);
   const viewsMarkup = views
     .map((viewSvg) => `<div class="label-view"><div class="label-view-svg">${viewSvg}</div></div>`)
     .join('');
@@ -899,6 +1093,11 @@ function renderLabelMarkup(part, layout = {}) {
   }
   if (views.length) {
     classNames.push('label--with-visuals');
+  }
+  // The assortment strip is wider than a single drawing and needs more of the
+  // label to stay readable.
+  if (part.type === 'assortment') {
+    classNames.push('label--assortment');
   }
 
   const styleAttr = micro ? ` style="--title-lines:${layout.titleLines || 1}"` : '';

@@ -44,6 +44,7 @@
               <option value="nut">Nut</option>
               <option value="washer">Washer</option>
               <option value="bearing">Bearing</option>
+              <option value="assortment">Assortment (mixed box)</option>
             </select>
           </div>
         </div>
@@ -86,6 +87,7 @@
             <select id="head" name="head">
               <option value="pan" selected>Pan</option>
               <option value="socketCap">Socket Cap</option>
+              <option value="button">Button</option>
               <option value="fillister">Fillister</option>
               <option value="flat">Flat</option>
               <option value="flat82">82° Flat</option>
@@ -118,6 +120,20 @@
           <div class="form-group">
             <label for="pitch"><span id="pitchLabel">Pitch (mm)</span></label>
             <input id="pitch" name="pitch" type="number" step="0.05" value="0.7">
+          </div>
+        </div>
+
+        <div class="row config-group" data-types="screw,setScrew,assortment">
+          <div class="form-group">
+            <label for="lengths">Other Lengths In Box (optional)</label>
+            <input id="lengths" name="lengths" type="text" value="" placeholder="e.g. 30, 35, 40, 45, 50 or 30-50">
+          </div>
+          <div class="form-group">
+            <label for="lengthStyle">Length Display</label>
+            <select id="lengthStyle" name="lengthStyle">
+              <option value="range" selected>Range (30–50)</option>
+              <option value="list">List (30/35/40)</option>
+            </select>
           </div>
         </div>
 
@@ -201,9 +217,44 @@
           </div>
         </div>
 
-        <div class="form-group config-group" data-types="washer">
-          <label for="washerThickness">Thickness (mm)</label>
-          <input id="washerThickness" name="washerThickness" type="number" step="0.1" value="0.8">
+        <div class="row config-group" data-types="washer">
+          <div class="form-group">
+            <label for="washerThickness">Thickness (mm)</label>
+            <input id="washerThickness" name="washerThickness" type="number" step="0.1" value="0.8">
+          </div>
+          <div class="form-group">
+            <label for="washerStyle">Washer Style</label>
+            <select id="washerStyle" name="washerStyle">
+              <option value="flat" selected>Flat Washer</option>
+              <option value="lock">Split Lock Washer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group config-group" data-types="assortment">
+          <span class="group-label">Contents</span>
+          <div class="check-grid">
+            <label class="check-label" for="assortmentScrew">
+              <input id="assortmentScrew" name="assortmentItem" type="checkbox" value="screw">
+              Screws
+            </label>
+            <label class="check-label" for="assortmentNut">
+              <input id="assortmentNut" name="assortmentItem" type="checkbox" value="nut" checked>
+              Nuts
+            </label>
+            <label class="check-label" for="assortmentLockNut">
+              <input id="assortmentLockNut" name="assortmentItem" type="checkbox" value="lockNut">
+              Lock Nuts
+            </label>
+            <label class="check-label" for="assortmentFlatWasher">
+              <input id="assortmentFlatWasher" name="assortmentItem" type="checkbox" value="flatWasher" checked>
+              Flat Washers
+            </label>
+            <label class="check-label" for="assortmentLockWasher">
+              <input id="assortmentLockWasher" name="assortmentItem" type="checkbox" value="lockWasher" checked>
+              Lock Washers
+            </label>
+          </div>
         </div>
 
         <div class="row config-group" data-types="bearing">

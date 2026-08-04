@@ -99,6 +99,25 @@ function getHeadGeometry(headType, centerX, headTopY, shaftWidth) {
         <line x1="${centerX + bodyWidth * 0.28}" y1="${hexTop + 1}" x2="${centerX + bodyWidth * 0.28}" y2="${hexTop + hexHeight - 1}" stroke="#111" stroke-width="1.4" />
       `;
     }
+    case 'button': {
+      const buttonWidth = topWidth * 1.02;
+      const buttonHeight = Math.max(5, Math.min(9, headHeight * 0.5));
+      const flankHeight = Math.max(1.5, buttonHeight * 0.22);
+      const flankY = headBottomY - flankHeight;
+      const domeHeight = buttonHeight - flankHeight;
+      return `
+        <path
+          d="M ${centerX - buttonWidth / 2} ${headBottomY}
+             L ${centerX - buttonWidth / 2} ${flankY}
+             A ${buttonWidth / 2} ${domeHeight} 0 0 1 ${centerX + buttonWidth / 2} ${flankY}
+             L ${centerX + buttonWidth / 2} ${headBottomY}
+             Z"
+          fill="#fff"
+          stroke="#111"
+          stroke-width="2"
+        />
+      `;
+    }
     case 'fillister': {
       const fillisterWidth = shaftWidth * 2.05;
       const fillisterHeight = Math.max(10, Math.min(17, headHeight * 1.05));
@@ -194,6 +213,7 @@ function getHeadGeometry(headType, centerX, headTopY, shaftWidth) {
 function getResolvedHeadData(sizeData, headType) {
   const baseHead = sizeData.heads[headType] || sizeData.heads.pan;
   const scales = {
+    button: { diameter: 0.95, height: 0.72 },
     fillister: { diameter: 0.95, height: 1.15 },
     flat82: { diameter: 1.1, height: 0.9 },
     hexWasher: { diameter: 1.18, height: 1.0 },

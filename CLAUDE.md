@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Static, fully client-side browser app that generates printable hardware bin labels (screws, set screws, nuts, washers, bearings) with SVG technical drawings. Deployed as-is to GitHub Pages.
+Static, fully client-side browser app that generates printable hardware bin labels (screws, set screws, nuts, washers, bearings, mixed assortments) with SVG technical drawings. Deployed as-is to GitHub Pages.
 
 ## Running
 
@@ -40,11 +40,26 @@ SAE is a presentation/input concern only. `getCurrentPart()` converts inch lengt
 
 Type-specific field groups are declared in HTML as `.config-group[data-types="screw,nut"]`. `updateFormOptions()` toggles `.is-hidden` and sets `disabled` on their controls based on the selected type. Adding a new type-specific control means adding a `data-types` group in `index.html` — no JS registry to update.
 
+### A label can describe more than one part
+
+Two fields let one label cover a whole bin, and they compose:
+
+- `lengths` (screw / set screw / assortment) — a free-text spec, either an explicit set (`30, 35, 40`) or the shorthand range (`30-50`). `parseLengthSpec()` returns `{values, min, max, enumerated}`, where `enumerated` is false for the shorthand, because that form does not say what is actually stocked. `lengthStyle` picks the title form (`range` by default, or `list`). Only the *enumerated* case gets the `Lengths: 30/35/40mm` meta line — a shorthand range has nothing more to spell out, and a `list` title already shows it.
+- `assortmentItems` (type `assortment`) — a subset of `ASSORTMENT_ITEM_LABELS`' keys, always re-sorted into that map's order by `normalizeAssortmentItems()` so the same box always reads the same way. The keys are drawn by `ITEM_RENDERERS` in `renderers/assortmentRenderer.js`; the two lists must stay in step.
+
+Renderers draw one part, so `withRepresentativeLength()` swaps in the *median* length before drawing a multi-length label. Both `renderFastenerSVG()` and `renderFastenerViews()` apply it, so nothing can bypass it.
+
+An assortment's detail line follows its contents: a box holding washers gets the washer ID/OD/thickness line (`buildWasherDetailLine()`, shared with the washer type) instead of the thread spec, because the title already carries the thread size and the washer OD is the one dimension it cannot imply. A box without washers keeps the thread line.
+
+`renderTitle(part, { short })` and `renderSubtitle(part, { short })` take the short forms for micro stock: an enumerated list collapses to a range (the title is line-clamped, so a list would be cut mid-number) and `Assortment` becomes `Kit`. When the layout has no subtitle at all, `buildMetaLines(part, { includeContents })` moves the contents into the details — on a mixed box that line is the whole point of the label.
+
 ### Renderer conventions
 
 All renderers emit a raw SVG string with a fixed `viewBox="0 0 120 160"`, drawing centered at `x=60` (top views at `y=80`). Geometry is hand-tuned with `clamp`/`Math.min`/`Math.max` so wildly different sizes still fill the box — real-world proportions are deliberately not preserved. Stroke is `#111`, fill `#fff`, so labels print cleanly in mono.
 
 `renderFastenerViews()` in `script.js` decides which views appear per type (screws get side+top, headless screws and nuts/washers/bearings get one).
+
+`assortmentRenderer.js` is the one deliberate exception to the fixed viewBox: it composes the *other* renderers' output into a strip of `120 × N` by `160`, one 120-unit column per item, nesting each drawing in an `<svg x= width= viewBox="0 0 120 160">`. Nesting rather than re-scaling by hand is what keeps every item on the geometry its own renderer was tuned for. It returns `''` when nothing is selected, so both dispatchers filter falsy views. Because the strip is wider than a single drawing, `.label--assortment` gives it a larger view slot in CSS, and `renderLabelMarkup()` caps it at 3 items on full-size stock and 2 below that.
 
 ### Sheet layout and printing
 
@@ -88,7 +103,7 @@ Micro type is sized in `pt`/`mm` rather than `rem` so output is predictable at t
 
 ### JSON import compatibility
 
-`normalizePart()` migrates older exports (e.g. the legacy boolean `isLockNut` → the `nutStyle` enum) and keeps both fields in sync. When changing a `part` field's representation, extend `normalizePart()` rather than breaking previously exported files.
+`normalizePart()` migrates older exports (e.g. the legacy boolean `isLockNut` → the `nutStyle` enum) and keeps both fields in sync. It also fills in fields that predate an export — `lengths`, `lengthStyle`, `washerStyle`, `assortmentItems` — so a file saved before those existed still imports. When changing a `part` field's representation, extend `normalizePart()` rather than breaking previously exported files.
 
 ## Adding a new hardware type
 

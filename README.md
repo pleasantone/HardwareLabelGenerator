@@ -8,6 +8,7 @@ It creates printable labels with technical details and SVG visuals for:
 - Nuts
 - Washers
 - Bearings
+- Assortments (one bin holding several lengths, or a mix of nuts and washers)
 
 The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitHub Pages.
 
@@ -29,7 +30,16 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
   - Hex lock
   - Wing
   - Keps
-- Washer controls with ID/OD/thickness
+- Washer controls with ID/OD/thickness and style options:
+  - Flat
+  - Split lock
+- Assortment labels for bins that hold more than one part:
+  - Several lengths of one thread size, titled as a range (`M5x0.8 × 30–50mm`)
+    or a list (`M5x0.8 × 30/35/40/45/50mm`)
+  - Mixed boxes (`M5x0.8 Assortment` / `Nuts • Flat Washers • Lock Washers`),
+    drawn as one strip with a drawing per item
+  - Detail line follows the contents: washer ID/OD/thickness when the box holds
+    washers, otherwise the thread spec
 - Bearing controls with:
   - Preset sizes (e.g. 608, 6203)
   - ID/OD/width fields
@@ -63,6 +73,7 @@ The project is fully client-side (HTML/CSS/JavaScript), so it works well on GitH
 - [renderers/nutRenderer.js](renderers/nutRenderer.js) – nut SVG rendering
 - [renderers/washerRenderer.js](renderers/washerRenderer.js) – washer SVG rendering
 - [renderers/bearingRenderer.js](renderers/bearingRenderer.js) – bearing SVG rendering
+- [renderers/assortmentRenderer.js](renderers/assortmentRenderer.js) – mixed-box strip composed from the other renderers
 - [favicon.svg](favicon.svg) – app icon
 
 ## Supported Thread Size Sets
@@ -137,3 +148,8 @@ What each 12mm template prints, highest priority first:
 
 Titles omit the "Metric"/"SAE" word throughout the app, since the size designation
 already implies it (`M6x1.0` vs `1/4-20`).
+
+Assortment labels shorten to fit 12mm stock: the title becomes `M5x0.8 Kit`, an
+enumerated length list collapses to its range, and the contents move into the
+detail lines on the stock too narrow for a subtitle. Only the first two items are
+drawn there; the contents line still names them all.

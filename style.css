@@ -126,6 +126,25 @@ button {
   margin: 0;
 }
 
+/* Stands in for <label> on a group of checkboxes, which has no single control
+   to point at. */
+.group-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.check-grid .check-label {
+  margin-bottom: 0;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -227,6 +246,18 @@ button {
   height: 64px;
 }
 
+/* An assortment strip is two or three drawings wide, so it gets the full width
+   of the visuals column and more height than a single view — otherwise each
+   item lands at about a third of the size every other label draws them at. */
+.label--assortment .label-view {
+  padding: 2px 0;
+}
+
+.label--assortment .label-view-svg svg {
+  width: 154px;
+  height: 84px;
+}
+
 .label--compact {
   grid-template-columns: 1fr 78px;
   padding: 8px;
@@ -267,6 +298,11 @@ button {
 .label--compact .label-view-svg svg {
   width: 58px;
   height: 31px;
+}
+
+.label--compact.label--assortment .label-view-svg svg {
+  width: 74px;
+  height: 44px;
 }
 
 /* Thermal roll stock (e.g. NIIMBOT 12mm tape). Sized in mm/pt rather than rem so
@@ -340,6 +376,18 @@ button {
   width: 9mm;
   height: 10mm;
 }
+
+/* Two drawings side by side need roughly twice the width of one before either
+   is recognisable at 12mm. */
+.label--micro.label--assortment.label--with-visuals {
+  grid-template-columns: 1fr 15mm;
+}
+
+.label--micro.label--assortment .label-view-svg svg {
+  width: 15mm;
+  height: 10mm;
+}
+
 
 .sheet-preview {
   width: 100%;
